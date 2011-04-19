@@ -27,7 +27,7 @@ EOF
 }
 
 # check command-line arguments count
-while getopts "c:hH:P:" OPTION;do
+while getopts "c:hlH:P:" OPTION;do
     case $OPTION in
         c)
 	    DBCONF=$OPTARG
