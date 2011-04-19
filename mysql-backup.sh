@@ -316,7 +316,7 @@ compression () {
 # First argument should be the target file name, following the file names which
 # needs to be compressed. If there is only one argument, then compress on that
 # file only.
-FILENAME = "$1"
+FILENAME="$1"
 [ $# != 1 ] && shift
 if [ "$COMP" = "gzip" ]; then
     cat "$*" | gzip > "$FILENAME"
