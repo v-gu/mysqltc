@@ -6,6 +6,8 @@ DBHOST=
 DBPORT=3306
 # Default MySQL conf file
 DBCONF=/etc/mysql/my.cnf
+# Sould we lock all MySQL tables while dumping
+LOCK='false'
 
 # Help info.
 usage()
@@ -19,6 +21,7 @@ OPTIONS:
    -c      MySQL conf file, default: /etc/mysql/my.cnf
    -h      Show help
    -H      MySQL host
+   -l      with lock, only applies to ALL mode
    -P      MySQL port default: 3306
 EOF
 }
@@ -36,6 +39,9 @@ while getopts "c:hH:P:" OPTION;do
 	H)
 	    DBHOST=$OPTARG
 	    ;;
+    l)
+        LOCK='true'
+        ;;
 	P)
 	    DBPORT=$OPTARG
 	    ;;
@@ -307,21 +313,26 @@ return 0
 # Compression function plus latest copy
 SUFFIX=""
 compression () {
+# First argument should be the target file name, following the file names which
+# needs to be compressed. If there is only one argument, then compress on that
+# file only.
+FILENAME = "$1"
+[ $# != 1 ] && shift
 if [ "$COMP" = "gzip" ]; then
-	gzip -f "$1"
+    cat "$*" | gzip > "$FILENAME"
 	echo
-	echo Backup Information for "$1"
-	gzip -l "$1.gz"
+	echo Backup Information for "$FILENAME"
+	gzip -l "$FILENAME.gz"
 	SUFFIX=".gz"
 elif [ "$COMP" = "bzip2" ]; then
-	echo Compression information for "$1.bz2"
-	bzip2 -f -v $1 2>&1
+	echo Compression information for "$FILENAME.bz2"
+	cat "%*" | bzip2 -f -v -c >"$FILENAME" 2>&1
 	SUFFIX=".bz2"
 else
 	echo "No compression option set, check advanced settings"
 fi
 if [ "$LATEST" = "yes" ]; then
-	cp $1$SUFFIX "$BACKUPDIR/latest/"
+	cp "$FILENAME$SUFFIX" "$BACKUPDIR/latest/"
 fi	
 return 0
 }
@@ -369,8 +380,10 @@ if [ "$DBNAMES" = "all" ]; then
 	do
 		DBNAMES=`echo $DBNAMES | sed "s/\b$exclude\b//g"`
 	done
-
         MDBNAMES=$DBNAMES
+        if [ "$LOCK" == "true" ]; then
+            OPT="$OPT --lock-all-tables"
+        fi
 fi
 	
 echo ======================================================================
@@ -385,45 +398,41 @@ echo ======================================================================
 	if [ $DOM = "01" ]; then
 		for MDB in $MDBNAMES
 		do
- 
-			 # Prepare $DB for using
-		        MDB="`echo $MDB | sed 's/%/ /g'`"
-
-			if [ ! -e "$BACKUPDIR/monthly/$MDB" ]		# Check Monthly DB Directory exists.
-			then
-				mkdir -p "$BACKUPDIR/monthly/$MDB"
-			fi
+			# Prepare $DB for using
+		    MDB="`echo $MDB | sed 's/%/ /g'`"
+			[ ! -e "$BACKUPDIR/monthly/$MDB" ] && mkdir -p "$BACKUPDIR/monthly/$MDB"
 			echo Monthly Backup of $MDB...
 			dbdump "$MDB" "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
 			compression "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
-            # Backup conf
-            su - mysync -c "scp $DBHOST:$DBCONF ~/" && \
-                tar zcf "$BACKUPDIR/monthly/`basename $DBCONF`.tar.gz" -C "/home/mysync `basename $DBCONF`"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql$SUFFIX"
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql$SUFFIX"
 			echo ----------------------------------------------------------------------
 		done
+
+        # Backup conf
+        echo Backing up conf file...
+        [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
+            echo Backing up conf file done.
+        [ $? != 0 ] && \
+            echo Backing up conf file failed.
+        # compress backed up files
+        compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
+        BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
 	fi
 
-	for DB in $DBNAMES
-	do
-	# Prepare $DB for using
-	DB="`echo $DB | sed 's/%/ /g'`"
-	
-	# Create Seperate directory for each DB
-	if [ ! -e "$BACKUPDIR/daily/$DB" ]		# Check Daily DB Directory exists.
-		then
-		mkdir -p "$BACKUPDIR/daily/$DB"
-	fi
-	
-	if [ ! -e "$BACKUPDIR/weekly/$DB" ]		# Check Weekly DB Directory exists.
-		then
-		mkdir -p "$BACKUPDIR/weekly/$DB"
-	fi
-	
 	# Weekly Backup
 	if [ $DNOW = $DOWEEKLY ]; then
-		echo Weekly Backup of Database \( $DB \)
-		echo Rotating 5 weeks Backups...
+	    for DB in $DBNAMES
+	    do
+            # Prepare $DB for using
+	        DB="`echo $DB | sed 's/%/ /g'`"
+            
+            # Create Seperate directory for each DB
+	        [ ! -e "$BACKUPDIR/weekly/$DB" ] && mkdir -p "$BACKUPDIR/weekly/$DB"
+
+		    echo Weekly Backup of Database \( $DB \)
+	        echo Rotating 5 weeks Backups...
 			if [ "$W" -le 05 ];then
 				REMW=`expr 48 + $W`
 			elif [ "$W" -lt 15 ];then
@@ -431,25 +440,56 @@ echo ======================================================================
 			else
 				REMW=`expr $W - 5`
 			fi
-		eval rm -fv "$BACKUPDIR/weekly/$DB_week.$REMW.*" 
-		echo
-			dbdump "$DB" "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
-			compression "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql$SUFFIX"
+		    eval rm -fv "$BACKUPDIR/weekly/$DB_week.$REMW.*" 
+		    echo
+		    dbdump "$DB" "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
+            compression "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
+		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql$SUFFIX"
+        done
+        # Backup conf
+        echo Backing up conf file...
+        [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
+            echo Backing up conf file done.
+        [ $? != 0 ] && \
+            echo Backing up conf file failed.
+        # compress backed up files
+        compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
+		BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
 		echo ----------------------------------------------------------------------
 	
 	# Daily Backup
 	else
-		echo Daily Backup of Database \( $DB \)
-		echo Rotating last weeks Backup...
-		eval rm -fv "$BACKUPDIR/daily/$DB/*.$DOW.sql.*" 
-		echo
-			dbdump "$DB" "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
-			compression "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql$SUFFIX"
+	    for DB in $DBNAMES
+	    do
+            # Prepare $DB for using
+	        DB="`echo $DB | sed 's/%/ /g'`"
+	        
+            # Create Seperate directory for each DB
+	        [ ! -e "$BACKUPDIR/daily/$DB" ] && mkdir -p "$BACKUPDIR/daily/$DB"
+
+		    echo Daily Backup of Database \( $DB \)
+            echo Rotating last weeks Backup...
+            eval rm -fv "$BACKUPDIR/daily/$DB/*.$DOW.sql.*" 
+		    echo
+            dbdump "$DB" "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
+		    compression "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
+		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql$SUFFIX"
+        done
+        # Backup conf
+        echo Backing up conf file...
+        [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
+            echo Backing up conf file done.
+        [ $? != 0 ] && \
+            echo Backing up conf file failed.
+        # compress backed up files
+        compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
+		BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
 		echo ----------------------------------------------------------------------
 	fi
-	done
 echo Backup End `date`
 echo ======================================================================
 
@@ -461,8 +501,18 @@ echo ======================================================================
 	if [ $DOM = "01" ]; then
 		echo Monthly full Backup of \( $MDBNAMES \)...
 			dbdump "$MDBNAMES" "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
-			compression "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$DATE.$M.all-databases.sql$SUFFIX"
+            # Backup conf
+            echo Backing up conf file...
+            [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
+                echo Backing up conf file done.
+            [ $? != 0 ] && \
+                echo Backing up conf file failed.
+            # compress backed up files
+		    compression "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
+            compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
+		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$DATE.$M.all-databases.sql$SUFFIX $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
 		echo ----------------------------------------------------------------------
 	fi
 
@@ -481,8 +531,18 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
 		echo
 			dbdump "$DBNAMES" "$BACKUPDIR/weekly/week.$W.$DATE.sql"
+            # Backup conf
+            echo Backing up conf file...
+            [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
+                echo Backing up conf file done.
+            [ $? != 0 ] && \
+                echo Backing up conf file failed.
+            # compress backed up files
 			compression "$BACKUPDIR/weekly/week.$W.$DATE.sql"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/week.$W.$DATE.sql$SUFFIX"
+            compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
+			BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/week.$W.$DATE.sql$SUFFIX $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
 		echo ----------------------------------------------------------------------
 		
 	# Daily Backup
@@ -493,8 +553,18 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.sql.*" 
 		echo
 			dbdump "$DBNAMES" "$BACKUPDIR/daily/$DATE.$DOW.sql"
+            # Backup conf
+            echo Backing up conf file...
+            [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
+                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
+                echo Backing up conf file done.
+            [ $? != 0 ] && \
+                echo Backing up conf file failed.
+            # compress backed up files
 			compression "$BACKUPDIR/daily/$DATE.$DOW.sql"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DATE.$DOW.sql$SUFFIX"
+            compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
+			BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DATE.$DOW.sql$SUFFIX $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
 		echo ----------------------------------------------------------------------
 	fi
 echo Backup End Time `date`
@@ -505,10 +575,6 @@ echo Size - Location
 echo `du -hs "$BACKUPDIR"`
 echo
 echo ======================================================================
-
-# Backup MySQL conf file
-su - mysync -c "scp $DBHOST:$DBCONF ~/"
-tar zcf "$BACKUPDIR/monthly/`basename $DBCONF`.tar.gz" -C "/home/mysync `basename $DBCONF`"
 
 # Run command when we're done
 if [ "$POSTBACKUP" ]
