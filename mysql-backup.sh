@@ -8,6 +8,8 @@ DBPORT=3306
 DBCONF=/etc/mysql/my.cnf
 # Sould we lock all MySQL tables while dumping
 LOCK='false'
+# Separate backup directory and file for each DB? (yes or no)
+SEPDIR=no
 
 # Help info.
 usage()
@@ -23,11 +25,12 @@ OPTIONS:
    -H      MySQL host
    -l      with lock, only applies to ALL mode
    -P      MySQL port default: 3306
+   -s      Seperate backup directory for each schema
 EOF
 }
 
 # check command-line arguments count
-while getopts "c:hlH:P:" OPTION;do
+while getopts "c:hlH:P:s" OPTION;do
     case $OPTION in
         c)
 	    DBCONF=$OPTARG
@@ -45,6 +48,9 @@ while getopts "c:hlH:P:" OPTION;do
 	P)
 	    DBPORT=$OPTARG
 	    ;;
+    s)
+        SEPDIR=yes
+        ;;
 	?)
 	    usage
 	    exit 1
@@ -102,9 +108,6 @@ DBEXCLUDE="mysql information_schema performance_schema"
 
 # Include CREATE DATABASE in backup?
 CREATE_DATABASE=yes
-
-# Separate backup directory and file for each DB? (yes or no)
-SEPDIR=yes
 
 # Which day do you want weekly backups? (1 to 7 where 1 is Monday)
 DOWEEKLY=6
@@ -305,7 +308,6 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-#mysqldump --user=$USERNAME --password=$PASSWORD --host=$DBHOST --port=$DBPORT --master-data=2 $OPT $1 > $2
 mysqldump --user=$USERNAME --password=$PASSWORD --host=$DBHOST --port=$DBPORT $OPT $1 > $2
 return 0
 }
@@ -382,7 +384,7 @@ if [ "$DBNAMES" = "all" ]; then
 	done
         MDBNAMES=$DBNAMES
         if [ "$LOCK" == "true" ]; then
-            OPT="$OPT --lock-all-tables"
+            OPT="$OPT --lock-all-tables --master-data=2"
         fi
 fi
 	
