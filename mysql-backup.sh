@@ -23,9 +23,9 @@ OPTIONS:
    -c      MySQL conf file, default: /etc/mysql/my.cnf
    -h      Show help
    -H      MySQL host
-   -l      with lock, only applies to ALL mode
-   -P      MySQL port default: 3306
-   -s      Seperate backup directory for each schema
+   -l      with lock, only applies to ALL mode, default: no lock
+   -P      MySQL port, default: 3306
+   -s      Seperate backup directory for each schema, default: no seperation
 EOF
 }
 
@@ -33,28 +33,28 @@ EOF
 while getopts "c:hlH:P:s" OPTION;do
     case $OPTION in
         c)
-	    DBCONF=$OPTARG
-	    ;;
-	h)
-	    usage
-	    exit 1
-	    ;;
-	H)
-	    DBHOST=$OPTARG
-	    ;;
+        DBCONF=$OPTARG
+        ;;
+    h)
+        usage
+        exit 1
+        ;;
+    H)
+        DBHOST=$OPTARG
+        ;;
     l)
         LOCK='true'
         ;;
-	P)
-	    DBPORT=$OPTARG
-	    ;;
+    P)
+        DBPORT=$OPTARG
+        ;;
     s)
         SEPDIR=yes
         ;;
-	?)
-	    usage
-	    exit 1
-	    ;;
+    ?)
+        usage
+        exit 1
+        ;;
     esac
 done
 
@@ -239,57 +239,57 @@ SOCKET=
 #=====================================================================
 #=====================================================================
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/mysql/bin 
-DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
-DOW=`date +%A`							# Day of the week e.g. Monday
-DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
-DOM=`date +%d`							# Date of the Month e.g. 27
-M=`date +%B`							# Month e.g January
-W=`date +%V`							# Week Number e.g 37
-VER=2.5									# Version Number
-LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
-LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
+DATE=`date +%Y-%m-%d_%Hh%Mm`                # Datestamp e.g 2002-09-21
+DOW=`date +%A`                            # Day of the week e.g. Monday
+DNOW=`date +%u`                        # Day number of the week 1 to 7 where 1 represents Monday
+DOM=`date +%d`                            # Date of the Month e.g. 27
+M=`date +%B`                            # Month e.g January
+W=`date +%V`                            # Week Number e.g 37
+VER=2.5                                    # Version Number
+LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log        # Logfile Name
+LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
 BACKUPFILES=""
-OPT="--quote-names --opt"			# OPT string for use with mysqldump ( see man mysqldump )
+OPT="--quote-names --opt"            # OPT string for use with mysqldump ( see man mysqldump )
 
 # Add --compress mysqldump option to $OPT
 if [ "$COMMCOMP" = "yes" ];
-	then
-		OPT="$OPT --compress"
-	fi
+    then
+        OPT="$OPT --compress"
+    fi
 
 # Add --compress mysqldump option to $OPT
 if [ "$MAX_ALLOWED_PACKET" ];
-	then
-		OPT="$OPT --max_allowed_packet=$MAX_ALLOWED_PACKET"
-	fi
+    then
+        OPT="$OPT --max_allowed_packet=$MAX_ALLOWED_PACKET"
+    fi
 
 # Create required directories
-if [ ! -e "$BACKUPDIR" ]		# Check Backup Directory exists.
-	then
-	mkdir -p "$BACKUPDIR"
+if [ ! -e "$BACKUPDIR" ]        # Check Backup Directory exists.
+    then
+    mkdir -p "$BACKUPDIR"
 fi
 
-if [ ! -e "$BACKUPDIR/daily" ]		# Check Daily Directory exists.
-	then
-	mkdir -p "$BACKUPDIR/daily"
+if [ ! -e "$BACKUPDIR/daily" ]        # Check Daily Directory exists.
+    then
+    mkdir -p "$BACKUPDIR/daily"
 fi
 
-if [ ! -e "$BACKUPDIR/weekly" ]		# Check Weekly Directory exists.
-	then
-	mkdir -p "$BACKUPDIR/weekly"
+if [ ! -e "$BACKUPDIR/weekly" ]        # Check Weekly Directory exists.
+    then
+    mkdir -p "$BACKUPDIR/weekly"
 fi
 
-if [ ! -e "$BACKUPDIR/monthly" ]	# Check Monthly Directory exists.
-	then
-	mkdir -p "$BACKUPDIR/monthly"
+if [ ! -e "$BACKUPDIR/monthly" ]    # Check Monthly Directory exists.
+    then
+    mkdir -p "$BACKUPDIR/monthly"
 fi
 
 if [ "$LATEST" = "yes" ]
 then
-	if [ ! -e "$BACKUPDIR/latest" ]	# Check Latest Directory exists.
-	then
-		mkdir -p "$BACKUPDIR/latest"
-	fi
+    if [ ! -e "$BACKUPDIR/latest" ]    # Check Latest Directory exists.
+    then
+        mkdir -p "$BACKUPDIR/latest"
+    fi
 eval rm -fv "$BACKUPDIR/latest/*"
 fi
 
@@ -322,72 +322,72 @@ FILENAME="$1"
 [ $# != 1 ] && shift
 if [ "$COMP" = "gzip" ]; then
     cat "$*" | gzip > "$FILENAME"
-	echo
-	echo Backup Information for "$FILENAME"
-	gzip -l "$FILENAME.gz"
-	SUFFIX=".gz"
+    echo
+    echo Backup Information for "$FILENAME"
+    gzip -l "$FILENAME.gz"
+    SUFFIX=".gz"
 elif [ "$COMP" = "bzip2" ]; then
-	echo Compression information for "$FILENAME.bz2"
-	cat "%*" | bzip2 -f -v -c >"$FILENAME" 2>&1
-	SUFFIX=".bz2"
+    echo Compression information for "$FILENAME.bz2"
+    cat "%*" | bzip2 -f -v -c >"$FILENAME" 2>&1
+    SUFFIX=".bz2"
 else
-	echo "No compression option set, check advanced settings"
+    echo "No compression option set, check advanced settings"
 fi
 if [ "$LATEST" = "yes" ]; then
-	cp "$FILENAME$SUFFIX" "$BACKUPDIR/latest/"
-fi	
+    cp "$FILENAME$SUFFIX" "$BACKUPDIR/latest/"
+fi    
 return 0
 }
 
 
 # Run command before we begin
 if [ "$PREBACKUP" ]
-	then
-	echo ======================================================================
-	echo "Prebackup command output."
-	echo
-	eval $PREBACKUP
-	echo
-	echo ======================================================================
-	echo
+    then
+    echo ======================================================================
+    echo "Prebackup command output."
+    echo
+    eval $PREBACKUP
+    echo
+    echo ======================================================================
+    echo
 fi
 
 
 if [ "$SEPDIR" = "yes" ]; then # Check if CREATE DATABSE should be included in Dump
-	if [ "$CREATE_DATABASE" = "no" ]; then
-		OPT="$OPT --no-create-db"
-	else
-		OPT="$OPT --databases"
-	fi
+    if [ "$CREATE_DATABASE" = "no" ]; then
+        OPT="$OPT --no-create-db"
+    else
+        OPT="$OPT --databases"
+    fi
 else
-	OPT="$OPT --databases"
+    OPT="$OPT --databases"
 fi
 
 # Hostname for LOG information
 if [ "$DBHOST" = "localhost" ]; then
-	HOST=`hostname`
-	if [ "$SOCKET" ]; then
-		OPT="$OPT --socket=$SOCKET"
-	fi
+    HOST=`hostname`
+    if [ "$SOCKET" ]; then
+        OPT="$OPT --socket=$SOCKET"
+    fi
 else
-	HOST=$DBHOST
+    HOST=$DBHOST
 fi
 
 # If backing up all DBs on the server
 if [ "$DBNAMES" = "all" ]; then
         DBNAMES="`mysql --user=$USERNAME --password=$PASSWORD --host=$DBHOST --port=$DBPORT --batch --skip-column-names -e "show databases"| sed 's/ /%/g'`"
 
-	# If DBs are excluded
-	for exclude in $DBEXCLUDE
-	do
-		DBNAMES=`echo $DBNAMES | sed "s/\b$exclude\b//g"`
-	done
+    # If DBs are excluded
+    for exclude in $DBEXCLUDE
+    do
+        DBNAMES=`echo $DBNAMES | sed "s/\b$exclude\b//g"`
+    done
         MDBNAMES=$DBNAMES
         if [ "$LOCK" == "true" ]; then
             OPT="$OPT --lock-all-tables --master-data=2"
         fi
 fi
-	
+    
 echo ======================================================================
 echo Backup of Database Server - $HOST
 echo ======================================================================
@@ -396,19 +396,19 @@ echo ======================================================================
 if [ "$SEPDIR" = "yes" ]; then
 echo Backup Start Time `date`
 echo ======================================================================
-	# Monthly Full Backup of all Databases
-	if [ $DOM = "01" ]; then
-		for MDB in $MDBNAMES
-		do
-			# Prepare $DB for using
-		    MDB="`echo $MDB | sed 's/%/ /g'`"
-			[ ! -e "$BACKUPDIR/monthly/$MDB" ] && mkdir -p "$BACKUPDIR/monthly/$MDB"
-			echo Monthly Backup of $MDB...
-			dbdump "$MDB" "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
-			compression "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
+    # Monthly Full Backup of all Databases
+    if [ $DOM = "01" ]; then
+        for MDB in $MDBNAMES
+        do
+            # Prepare $DB for using
+            MDB="`echo $MDB | sed 's/%/ /g'`"
+            [ ! -e "$BACKUPDIR/monthly/$MDB" ] && mkdir -p "$BACKUPDIR/monthly/$MDB"
+            echo Monthly Backup of $MDB...
+            dbdump "$MDB" "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
+            compression "$BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql"
             BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$MDB/${MDB}_$DATE.$M.$MDB.sql$SUFFIX"
-			echo ----------------------------------------------------------------------
-		done
+            echo ----------------------------------------------------------------------
+        done
 
         # Backup conf
         echo Backing up conf file...
@@ -421,32 +421,32 @@ echo ======================================================================
         # compress backed up files
         compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
         BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
-	fi
+    fi
 
-	# Weekly Backup
-	if [ $DNOW = $DOWEEKLY ]; then
-	    for DB in $DBNAMES
-	    do
+    # Weekly Backup
+    if [ $DNOW = $DOWEEKLY ]; then
+        for DB in $DBNAMES
+        do
             # Prepare $DB for using
-	        DB="`echo $DB | sed 's/%/ /g'`"
+            DB="`echo $DB | sed 's/%/ /g'`"
             
             # Create Seperate directory for each DB
-	        [ ! -e "$BACKUPDIR/weekly/$DB" ] && mkdir -p "$BACKUPDIR/weekly/$DB"
+            [ ! -e "$BACKUPDIR/weekly/$DB" ] && mkdir -p "$BACKUPDIR/weekly/$DB"
 
-		    echo Weekly Backup of Database \( $DB \)
-	        echo Rotating 5 weeks Backups...
-			if [ "$W" -le 05 ];then
-				REMW=`expr 48 + $W`
-			elif [ "$W" -lt 15 ];then
-				REMW=0`expr $W - 5`
-			else
-				REMW=`expr $W - 5`
-			fi
-		    eval rm -fv "$BACKUPDIR/weekly/$DB_week.$REMW.*" 
-		    echo
-		    dbdump "$DB" "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
+            echo Weekly Backup of Database \( $DB \)
+            echo Rotating 5 weeks Backups...
+            if [ "$W" -le 05 ];then
+                REMW=`expr 48 + $W`
+            elif [ "$W" -lt 15 ];then
+                REMW=0`expr $W - 5`
+            else
+                REMW=`expr $W - 5`
+            fi
+            eval rm -fv "$BACKUPDIR/weekly/$DB_week.$REMW.*" 
+            echo
+            dbdump "$DB" "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
             compression "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
-		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql$SUFFIX"
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql$SUFFIX"
         done
         # Backup conf
         echo Backing up conf file...
@@ -458,26 +458,26 @@ echo ======================================================================
             echo Backing up conf file failed.
         # compress backed up files
         compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
-		BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
-		echo ----------------------------------------------------------------------
-	
-	# Daily Backup
-	else
-	    for DB in $DBNAMES
-	    do
+        BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
+        echo ----------------------------------------------------------------------
+    
+    # Daily Backup
+    else
+        for DB in $DBNAMES
+        do
             # Prepare $DB for using
-	        DB="`echo $DB | sed 's/%/ /g'`"
-	        
+            DB="`echo $DB | sed 's/%/ /g'`"
+            
             # Create Seperate directory for each DB
-	        [ ! -e "$BACKUPDIR/daily/$DB" ] && mkdir -p "$BACKUPDIR/daily/$DB"
+            [ ! -e "$BACKUPDIR/daily/$DB" ] && mkdir -p "$BACKUPDIR/daily/$DB"
 
-		    echo Daily Backup of Database \( $DB \)
+            echo Daily Backup of Database \( $DB \)
             echo Rotating last weeks Backup...
             eval rm -fv "$BACKUPDIR/daily/$DB/*.$DOW.sql.*" 
-		    echo
+            echo
             dbdump "$DB" "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
-		    compression "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
-		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql$SUFFIX"
+            compression "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql$SUFFIX"
         done
         # Backup conf
         echo Backing up conf file...
@@ -489,9 +489,9 @@ echo ======================================================================
             echo Backing up conf file failed.
         # compress backed up files
         compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
-		BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
-		echo ----------------------------------------------------------------------
-	fi
+        BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
+        echo ----------------------------------------------------------------------
+    fi
 echo Backup End `date`
 echo ======================================================================
 
@@ -499,10 +499,10 @@ echo ======================================================================
 else # One backup file for all DBs
 echo Backup Start `date`
 echo ======================================================================
-	# Monthly Full Backup of all Databases
-	if [ $DOM = "01" ]; then
-		echo Monthly full Backup of \( $MDBNAMES \)...
-			dbdump "$MDBNAMES" "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
+    # Monthly Full Backup of all Databases
+    if [ $DOM = "01" ]; then
+        echo Monthly full Backup of \( $MDBNAMES \)...
+            dbdump "$MDBNAMES" "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
@@ -512,27 +512,27 @@ echo ======================================================================
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
             # compress backed up files
-		    compression "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
+            compression "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
             compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
-		    BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$DATE.$M.all-databases.sql$SUFFIX $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
-		echo ----------------------------------------------------------------------
-	fi
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/$DATE.$M.all-databases.sql$SUFFIX $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
+        echo ----------------------------------------------------------------------
+    fi
 
-	# Weekly Backup
-	if [ $DNOW = $DOWEEKLY ]; then
-		echo Weekly Backup of Databases \( $DBNAMES \)
-		echo
-		echo Rotating 5 weeks Backups...
-			if [ "$W" -le 05 ];then
-				REMW=`expr 48 + $W`
-			elif [ "$W" -lt 15 ];then
-				REMW=0`expr $W - 5`
-			else
-				REMW=`expr $W - 5`
-			fi
-		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
-		echo
-			dbdump "$DBNAMES" "$BACKUPDIR/weekly/week.$W.$DATE.sql"
+    # Weekly Backup
+    if [ $DNOW = $DOWEEKLY ]; then
+        echo Weekly Backup of Databases \( $DBNAMES \)
+        echo
+        echo Rotating 5 weeks Backups...
+            if [ "$W" -le 05 ];then
+                REMW=`expr 48 + $W`
+            elif [ "$W" -lt 15 ];then
+                REMW=0`expr $W - 5`
+            else
+                REMW=`expr $W - 5`
+            fi
+        eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
+        echo
+            dbdump "$DBNAMES" "$BACKUPDIR/weekly/week.$W.$DATE.sql"
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
@@ -542,19 +542,19 @@ echo ======================================================================
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
             # compress backed up files
-			compression "$BACKUPDIR/weekly/week.$W.$DATE.sql"
+            compression "$BACKUPDIR/weekly/week.$W.$DATE.sql"
             compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/week.$W.$DATE.sql$SUFFIX $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
-		echo ----------------------------------------------------------------------
-		
-	# Daily Backup
-	else
-		echo Daily Backup of Databases \( $DBNAMES \)
-		echo
-		echo Rotating last weeks Backup...
-		eval rm -fv "$BACKUPDIR/daily/*.$DOW.sql.*" 
-		echo
-			dbdump "$DBNAMES" "$BACKUPDIR/daily/$DATE.$DOW.sql"
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/week.$W.$DATE.sql$SUFFIX $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
+        echo ----------------------------------------------------------------------
+        
+    # Daily Backup
+    else
+        echo Daily Backup of Databases \( $DBNAMES \)
+        echo
+        echo Rotating last weeks Backup...
+        eval rm -fv "$BACKUPDIR/daily/*.$DOW.sql.*" 
+        echo
+            dbdump "$DBNAMES" "$BACKUPDIR/daily/$DATE.$DOW.sql"
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
@@ -564,11 +564,11 @@ echo ======================================================================
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
             # compress backed up files
-			compression "$BACKUPDIR/daily/$DATE.$DOW.sql"
+            compression "$BACKUPDIR/daily/$DATE.$DOW.sql"
             compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
-			BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DATE.$DOW.sql$SUFFIX $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
-		echo ----------------------------------------------------------------------
-	fi
+            BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DATE.$DOW.sql$SUFFIX $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
+        echo ----------------------------------------------------------------------
+    fi
 echo Backup End Time `date`
 echo ======================================================================
 fi
@@ -580,13 +580,13 @@ echo ======================================================================
 
 # Run command when we're done
 if [ "$POSTBACKUP" ]
-	then
-	echo ======================================================================
-	echo "Postbackup command output."
-	echo
-	eval $POSTBACKUP
-	echo
-	echo ======================================================================
+    then
+    echo ======================================================================
+    echo "Postbackup command output."
+    echo
+    eval $POSTBACKUP
+    echo
+    echo ======================================================================
 fi
 
 #Clean up IO redirection
@@ -595,54 +595,54 @@ exec 1>&7 7>&-      # Restore stdout and close file descriptor #7.
 
 if [ "$MAILCONTENT" = "files" ]
 then
-	if [ -s "$LOGERR" ]
-	then
-		# Include error log if is larger than zero.
-		BACKUPFILES="$BACKUPFILES $LOGERR"
-		ERRORNOTE="WARNING: Error Reported - "
-	fi
-	#Get backup size
-	ATTSIZE=`du -c $BACKUPFILES | grep "[[:digit:][:space:]]total$" |sed s/\s*total//`
-	if [ $MAXATTSIZE -ge $ATTSIZE ]
-	then
-		BACKUPFILES=`echo "$BACKUPFILES" | sed -e "s# # -a #g"`	#enable multiple attachments
-		mutt -s "$ERRORNOTE MySQL Backup Log and SQL Files for $HOST - $DATE" $BACKUPFILES $MAILADDR < $LOGFILE		#send via mutt
-	else
-		cat "$LOGFILE" | mail -s "WARNING! - MySQL Backup exceeds set maximum attachment size on $HOST - $DATE" $MAILADDR
-	fi
+    if [ -s "$LOGERR" ]
+    then
+        # Include error log if is larger than zero.
+        BACKUPFILES="$BACKUPFILES $LOGERR"
+        ERRORNOTE="WARNING: Error Reported - "
+    fi
+    #Get backup size
+    ATTSIZE=`du -c $BACKUPFILES | grep "[[:digit:][:space:]]total$" |sed s/\s*total//`
+    if [ $MAXATTSIZE -ge $ATTSIZE ]
+    then
+        BACKUPFILES=`echo "$BACKUPFILES" | sed -e "s# # -a #g"`    #enable multiple attachments
+        mutt -s "$ERRORNOTE MySQL Backup Log and SQL Files for $HOST - $DATE" $BACKUPFILES $MAILADDR < $LOGFILE        #send via mutt
+    else
+        cat "$LOGFILE" | mail -s "WARNING! - MySQL Backup exceeds set maximum attachment size on $HOST - $DATE" $MAILADDR
+    fi
 elif [ "$MAILCONTENT" = "log" ]
 then
-	cat "$LOGFILE" | mail -s "MySQL Backup Log for $HOST - $DATE" $MAILADDR
-	if [ -s "$LOGERR" ]
-		then
-			cat "$LOGERR" | mail -s "ERRORS REPORTED: MySQL Backup error Log for $HOST - $DATE" $MAILADDR
-	fi	
+    cat "$LOGFILE" | mail -s "MySQL Backup Log for $HOST - $DATE" $MAILADDR
+    if [ -s "$LOGERR" ]
+        then
+            cat "$LOGERR" | mail -s "ERRORS REPORTED: MySQL Backup error Log for $HOST - $DATE" $MAILADDR
+    fi    
 elif [ "$MAILCONTENT" = "quiet" ]
 then
-	if [ -s "$LOGERR" ]
-		then
-			cat "$LOGERR" | mail -s "ERRORS REPORTED: MySQL Backup error Log for $HOST - $DATE" $MAILADDR
-			cat "$LOGFILE" | mail -s "MySQL Backup Log for $HOST - $DATE" $MAILADDR
-	fi
+    if [ -s "$LOGERR" ]
+        then
+            cat "$LOGERR" | mail -s "ERRORS REPORTED: MySQL Backup error Log for $HOST - $DATE" $MAILADDR
+            cat "$LOGFILE" | mail -s "MySQL Backup Log for $HOST - $DATE" $MAILADDR
+    fi
 else
-	if [ -s "$LOGERR" ]
-		then
-			cat "$LOGFILE"
-			echo
-			echo "###### WARNING ######"
-			echo "Errors reported during MySQL Backup execution.. Backup failed"
-			echo "Error log below.."
-			cat "$LOGERR"
-	else
-		cat "$LOGFILE"
-	fi	
+    if [ -s "$LOGERR" ]
+        then
+            cat "$LOGFILE"
+            echo
+            echo "###### WARNING ######"
+            echo "Errors reported during MySQL Backup execution.. Backup failed"
+            echo "Error log below.."
+            cat "$LOGERR"
+    else
+        cat "$LOGFILE"
+    fi    
 fi
 
 if [ -s "$LOGERR" ]
-	then
-		STATUS=1
-	else
-		STATUS=0
+    then
+        STATUS=1
+    else
+        STATUS=0
 fi
 
 # Clean up Logfile
