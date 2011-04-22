@@ -295,9 +295,9 @@ eval rm -fv "$BACKUPDIR/latest/*"
 fi
 
 # make log dirs
-[ ! -d "$BACKUPDIR/daily/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/daily/$LOGDIRNAME"
-[ ! -d "$BACKUPDIR/weekly/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/weekly/$LOGDIRNAME"
-[ ! -d "$BACKUPDIR/monthly/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/monthly/$LOGDIRNAME"
+[ ! -d "$BACKUPDIR/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/$LOGDIRNAME"
+[ ! -d "$BACKUPDIR/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/$LOGDIRNAME"
+[ ! -d "$BACKUPDIR/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/$LOGDIRNAME"
 
 # IO redirection for logging.
 touch $LOGFILE
