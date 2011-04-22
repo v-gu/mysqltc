@@ -321,8 +321,7 @@ compression () {
 FILENAME="$1"
 [ $# != 1 ] && shift
 if [ "$COMP" = "gzip" ]; then
-    echo cat "$*" | gzip > "$FILENAME.gz" && rm -f "$FILENAME"
-    exit
+    cat "$*" | gzip > "$FILENAME.gz" && rm -f "$FILENAME"
     echo
     echo Backup Information for "$FILENAME"
     gzip -l "$FILENAME.gz"
