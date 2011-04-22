@@ -413,8 +413,8 @@ echo ======================================================================
         # Backup conf
         echo Backing up conf file...
         [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
             echo Backing up conf file done.
         [ $? != 0 ] && \
             echo Backing up conf file failed.
@@ -451,8 +451,8 @@ echo ======================================================================
         # Backup conf
         echo Backing up conf file...
         [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
             echo Backing up conf file done.
         [ $? != 0 ] && \
             echo Backing up conf file failed.
@@ -482,8 +482,8 @@ echo ======================================================================
         # Backup conf
         echo Backing up conf file...
         [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-            cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
+        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
             echo Backing up conf file done.
         [ $? != 0 ] && \
             echo Backing up conf file failed.
@@ -506,8 +506,8 @@ echo ======================================================================
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+                cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
                 echo Backing up conf file done.
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
@@ -536,8 +536,8 @@ echo ======================================================================
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+                cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
                 echo Backing up conf file done.
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
@@ -558,8 +558,8 @@ echo ======================================================================
             # Backup conf
             echo Backing up conf file...
             [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBCONF" && \
-                cp "/tmp/$DBHOST-$DBCONF" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
+            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+                cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
                 echo Backing up conf file done.
             [ $? != 0 ] && \
                 echo Backing up conf file failed.
