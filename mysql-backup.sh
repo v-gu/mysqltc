@@ -246,8 +246,9 @@ DOM=`date +%d`                            # Date of the Month e.g. 27
 M=`date +%B`                            # Month e.g January
 W=`date +%V`                            # Week Number e.g 37
 VER=2.5                                    # Version Number
-LOGFILE=$BACKUPDIR/log/$DBHOST-`date +%N`.log        # Logfile Name
-LOGERR=$BACKUPDIR/log/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
+LOGDIRNAME="_log_"
+LOGFILE=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-`date +%N`.log        # Logfile Name
+LOGERR=$BACKUPDIR/"$LOGDIRNAME"/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
 BACKUPFILES=""
 OPT="--quote-names --opt"            # OPT string for use with mysqldump ( see man mysqldump )
 
@@ -271,17 +272,17 @@ fi
 
 if [ ! -e "$BACKUPDIR/daily" ]        # Check Daily Directory exists.
     then
-    mkdir -p "$BACKUPDIR/daily/log"
+    mkdir -p "$BACKUPDIR/daily"
 fi
 
 if [ ! -e "$BACKUPDIR/weekly" ]        # Check Weekly Directory exists.
     then
-    mkdir -p "$BACKUPDIR/weekly/log"
+    mkdir -p "$BACKUPDIR/weekly"
 fi
 
 if [ ! -e "$BACKUPDIR/monthly" ]    # Check Monthly Directory exists.
     then
-    mkdir -p "$BACKUPDIR/monthly/log"
+    mkdir -p "$BACKUPDIR/monthly"
 fi
 
 if [ "$LATEST" = "yes" ]
@@ -292,6 +293,11 @@ then
     fi
 eval rm -fv "$BACKUPDIR/latest/*"
 fi
+
+# make log dirs
+[ ! -d "$BACKUPDIR/daily/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/daily/$LOGDIRNAME"
+[ ! -d "$BACKUPDIR/weekly/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/weekly/$LOGDIRNAME"
+[ ! -d "$BACKUPDIR/monthly/$LOGDIRNAME" ] && mkdir -p "$BACKUPDIR/monthly/$LOGDIRNAME"
 
 # IO redirection for logging.
 touch $LOGFILE
