@@ -4,8 +4,8 @@
 DBHOST=
 # Default port number
 DBPORT=3306
-# Default MySQL conf file
-DBCONF=/etc/mysql/my.cnf
+# Default MySQL cnf file
+DBCNF=/etc/mysql/my.cnf
 # Sould we lock all MySQL tables while dumping
 LOCK='false'
 # Separate backup directory and file for each DB? (yes or no)
@@ -17,10 +17,10 @@ usage()
 cat << EOF
 usage: $0 OPTIONS
 
-This script will backup remote mysql instance's data&config to local.
+This script will backup remote mysql instance's data&cnfig to local.
 
 OPTIONS:
-   -c      MySQL conf file, default: /etc/mysql/my.cnf
+   -c      MySQL cnf file, default: /etc/mysql/my.cnf
    -h      Show help
    -H      MySQL host
    -l      with lock, only applies to ALL mode, default: no lock
@@ -33,7 +33,7 @@ EOF
 while getopts "c:hlH:P:s" OPTION;do
     case $OPTION in
         c)
-        DBCONF=$OPTARG
+        DBCNF=$OPTARG
         ;;
     h)
         usage
@@ -143,7 +143,7 @@ SOCKET=
 # NOTE: If DBNAMES="all" then MDBNAMES has no effect as all DBs will be backed
 # up anyway.
 #
-# If you set DBNAMES="all" you can configure the option DBEXCLUDE. Other
+# If you set DBNAMES="all" you can cnfigure the option DBEXCLUDE. Other
 # wise this option will not be used.
 # This option can be used if you want to backup all dbs, but you want 
 # exclude some of them. (eg. a db is to big).
@@ -410,14 +410,14 @@ echo ======================================================================
             echo ----------------------------------------------------------------------
         done
 
-        # Backup conf
-        echo Backing up conf file...
-        [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+        # Backup cnf
+        echo Backing up cnf file...
+        [ ! -d "$BACKUPDIR/monthly/_cnf_" ] && mkdir "$BACKUPDIR/monthly/_cnf_"
+        su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
             cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
-            echo Backing up conf file done.
+            echo Backing up cnf file done.
         [ $? != 0 ] && \
-            echo Backing up conf file failed.
+            echo Backing up cnf file failed.
         # compress backed up files
         compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
         BACKUPFILES="$BACKUPFILES $BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf$SUFFIX"
@@ -448,14 +448,14 @@ echo ======================================================================
             compression "$BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql"
             BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/$DB/${DB}_week.$W.$DATE.sql$SUFFIX"
         done
-        # Backup conf
-        echo Backing up conf file...
-        [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+        # Backup cnf
+        echo Backing up cnf file...
+        [ ! -d "$BACKUPDIR/weekly/_cnf_" ] && mkdir "$BACKUPDIR/weekly/_cnf_"
+        su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
             cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
-            echo Backing up conf file done.
+            echo Backing up cnf file done.
         [ $? != 0 ] && \
-            echo Backing up conf file failed.
+            echo Backing up cnf file failed.
         # compress backed up files
         compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
         BACKUPFILES="$BACKUPFILES $BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf$SUFFIX"
@@ -479,14 +479,14 @@ echo ======================================================================
             compression "$BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql"
             BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/$DB/${DB}_$DATE.$DOW.sql$SUFFIX"
         done
-        # Backup conf
-        echo Backing up conf file...
-        [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
-        su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+        # Backup cnf
+        echo Backing up cnf file...
+        [ ! -d "$BACKUPDIR/daily/_cnf_" ] && mkdir "$BACKUPDIR/daily/_cnf_"
+        su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
             cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
-            echo Backing up conf file done.
+            echo Backing up cnf file done.
         [ $? != 0 ] && \
-            echo Backing up conf file failed.
+            echo Backing up cnf file failed.
         # compress backed up files
         compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
         BACKUPFILES="$BACKUPFILES $BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf$SUFFIX"
@@ -503,14 +503,14 @@ echo ======================================================================
     if [ $DOM = "01" ]; then
         echo Monthly full Backup of \( $MDBNAMES \)...
             dbdump "$MDBNAMES" "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
-            # Backup conf
-            echo Backing up conf file...
-            [ ! -d "$BACKUPDIR/monthly/_conf_" ] && mkdir "$BACKUPDIR/monthly/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            # Backup cnf
+            echo Backing up cnf file...
+            [ ! -d "$BACKUPDIR/monthly/_cnf_" ] && mkdir "$BACKUPDIR/monthly/_cnf_"
+            su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
                 cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf" && \
-                echo Backing up conf file done.
+                echo Backing up cnf file done.
             [ $? != 0 ] && \
-                echo Backing up conf file failed.
+                echo Backing up cnf file failed.
             # compress backed up files
             compression "$BACKUPDIR/monthly/$DATE.$M.all-databases.sql"
             compression "$BACKUPDIR/monthly/_cnf_/$DATE-$M.cnf"
@@ -533,14 +533,14 @@ echo ======================================================================
         eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
         echo
             dbdump "$DBNAMES" "$BACKUPDIR/weekly/week.$W.$DATE.sql"
-            # Backup conf
-            echo Backing up conf file...
-            [ ! -d "$BACKUPDIR/weekly/_conf_" ] && mkdir "$BACKUPDIR/weekly/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            # Backup cnf
+            echo Backing up cnf file...
+            [ ! -d "$BACKUPDIR/weekly/_cnf_" ] && mkdir "$BACKUPDIR/weekly/_cnf_"
+            su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
                 cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf" && \
-                echo Backing up conf file done.
+                echo Backing up cnf file done.
             [ $? != 0 ] && \
-                echo Backing up conf file failed.
+                echo Backing up cnf file failed.
             # compress backed up files
             compression "$BACKUPDIR/weekly/week.$W.$DATE.sql"
             compression "$BACKUPDIR/weekly/_cnf_/$DATE-$W.cnf"
@@ -555,14 +555,14 @@ echo ======================================================================
         eval rm -fv "$BACKUPDIR/daily/*.$DOW.sql.*" 
         echo
             dbdump "$DBNAMES" "$BACKUPDIR/daily/$DATE.$DOW.sql"
-            # Backup conf
-            echo Backing up conf file...
-            [ ! -d "$BACKUPDIR/daily/_conf_" ] && mkdir "$BACKUPDIR/daily/_conf_"
-            su - mysync -c "scp $DBHOST:$DBCONF /tmp/$DBHOST-$DBPORT.cnf" && \
+            # Backup cnf
+            echo Backing up cnf file...
+            [ ! -d "$BACKUPDIR/daily/_cnf_" ] && mkdir "$BACKUPDIR/daily/_cnf_"
+            su - mysync -c "scp $DBHOST:$DBCNF /tmp/$DBHOST-$DBPORT.cnf" && \
                 cp "/tmp/$DBHOST-$DBPORT.cnf" "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf" && \
-                echo Backing up conf file done.
+                echo Backing up cnf file done.
             [ $? != 0 ] && \
-                echo Backing up conf file failed.
+                echo Backing up cnf file failed.
             # compress backed up files
             compression "$BACKUPDIR/daily/$DATE.$DOW.sql"
             compression "$BACKUPDIR/daily/_cnf_/$DATE-$DOW.cnf"
