@@ -239,18 +239,18 @@ SOCKET=
 #=====================================================================
 #=====================================================================
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/mysql/bin 
-DATE=`date +%Y-%m-%d_%Hh%Mm`                # Datestamp e.g 2002-09-21
-DOW=`date +%A`                            # Day of the week e.g. Monday
-DNOW=`date +%u`                        # Day number of the week 1 to 7 where 1 represents Monday
-DOM=`date +%d`                            # Date of the Month e.g. 27
-M=`date +%B`                            # Month e.g January
-W=`date +%V`                            # Week Number e.g 37
-VER=2.5                                    # Version Number
+DATE=`date +%Y-%m-%d_%Hh%Mm`    # Datestamp e.g 2002-09-21
+DOW=`date +%A`                  # Day of the week e.g. Monday
+DNOW=`date +%u`        # Day number of the week 1 to 7 where 1 represents Monday
+DOM=`date +%d`         # Date of the Month e.g. 27
+M=`date +%B`           # Month e.g January
+W=`date +%V`           # Week Number e.g 37
+VER=2.5                # Version Number
 LOGDIRNAME="_log_"
-LOGFILE=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-`date +%N`.log        # Logfile Name
-LOGERR=$BACKUPDIR/"$LOGDIRNAME"/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
+LOGFILE=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-`date +%N`.log       # Logfile Name
+LOGERR=$BACKUPDIR/"$LOGDIRNAME"/ERRORS_$DBHOST-`date +%N`.log # Logfile Name
 BACKUPFILES=""
-OPT="--quote-names --opt"            # OPT string for use with mysqldump ( see man mysqldump )
+OPT="--quote-names --opt" # OPT string for use with mysqldump ( see man mysqldump )
 
 # Add --compress mysqldump option to $OPT
 if [ "$COMMCOMP" = "yes" ];
