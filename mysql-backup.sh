@@ -247,8 +247,8 @@ M=`date +%B`           # Month e.g January
 W=`date +%V`           # Week Number e.g 37
 VER=2.5                # Version Number
 LOGDIRNAME="_log_"
-LOGFILE=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-`date +%N`.log       # Logfile Name
-LOGERR=$BACKUPDIR/"$LOGDIRNAME"/ERRORS_$DBHOST-`date +%N`.log # Logfile Name
+LOGFILE=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-"$DATE".log       # Logfile Name
+LOGERR=$BACKUPDIR/"$LOGDIRNAME"/$DBHOST-"$DATE".err        # Logfile Name
 BACKUPFILES=""
 OPT="--quote-names --opt" # OPT string for use with mysqldump ( see man mysqldump )
 
