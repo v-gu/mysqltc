@@ -321,14 +321,15 @@ compression () {
 FILENAME="$1"
 [ $# != 1 ] && shift
 if [ "$COMP" = "gzip" ]; then
-    cat "$*" | gzip > "$FILENAME"
+    echo cat "$*" | gzip > "$FILENAME.gz" && rm -f "$FILENAME"
+    exit
     echo
     echo Backup Information for "$FILENAME"
     gzip -l "$FILENAME.gz"
     SUFFIX=".gz"
 elif [ "$COMP" = "bzip2" ]; then
     echo Compression information for "$FILENAME.bz2"
-    cat "%*" | bzip2 -f -v -c >"$FILENAME" 2>&1
+    cat "%*" | bzip2 -f -v -c >"$FILENAME.bz2" 2>&1 && rm -f "$FILENAME"
     SUFFIX=".bz2"
 else
     echo "No compression option set, check advanced settings"
