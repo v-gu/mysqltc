@@ -246,8 +246,8 @@ DOM=`date +%d`                            # Date of the Month e.g. 27
 M=`date +%B`                            # Month e.g January
 W=`date +%V`                            # Week Number e.g 37
 VER=2.5                                    # Version Number
-LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log        # Logfile Name
-LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
+LOGFILE=$BACKUPDIR/log/$DBHOST-`date +%N`.log        # Logfile Name
+LOGERR=$BACKUPDIR/log/ERRORS_$DBHOST-`date +%N`.log        # Logfile Name
 BACKUPFILES=""
 OPT="--quote-names --opt"            # OPT string for use with mysqldump ( see man mysqldump )
 
@@ -271,17 +271,17 @@ fi
 
 if [ ! -e "$BACKUPDIR/daily" ]        # Check Daily Directory exists.
     then
-    mkdir -p "$BACKUPDIR/daily"
+    mkdir -p "$BACKUPDIR/daily/log"
 fi
 
 if [ ! -e "$BACKUPDIR/weekly" ]        # Check Weekly Directory exists.
     then
-    mkdir -p "$BACKUPDIR/weekly"
+    mkdir -p "$BACKUPDIR/weekly/log"
 fi
 
 if [ ! -e "$BACKUPDIR/monthly" ]    # Check Monthly Directory exists.
     then
-    mkdir -p "$BACKUPDIR/monthly"
+    mkdir -p "$BACKUPDIR/monthly/log"
 fi
 
 if [ "$LATEST" = "yes" ]
@@ -645,9 +645,9 @@ if [ -s "$LOGERR" ]
         STATUS=0
 fi
 
-# Clean up Logfile
-eval rm -f "$LOGFILE"
-eval rm -f "$LOGERR"
+# Clean up Logfile  -- do not clean up logfile, edited by Vincent
+#eval rm -f "$LOGFILE"
+#eval rm -f "$LOGERR"
 
 /usr/bin/rsync -avzc $BACKUPDIR $DESTDIR
 find $BACKUPDIR -mtime +${DAYTOKEEP} -exec rm -rf {} \;
