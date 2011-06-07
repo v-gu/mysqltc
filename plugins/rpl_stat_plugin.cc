@@ -63,8 +63,8 @@ static int rpl_stat_plugin_init(void *p)
   context->events_count= 0;
   fn_format(log_filename, "rpl-stat", "", ".log",
             MY_REPLACE_EXT | MY_UNPACK_FILENAME);
-  unlink(log_filename);
-  context->rpl_stat_log_file= my_open(log_filename, O_CREAT|O_RDWR, MYF(0));
+  context->rpl_stat_log_file= my_open(log_filename, O_RDWR|O_APPEND|O_CREAT,
+                                      MYF(0));
   extern File log_f;
   log_f= context->rpl_stat_log_file;
 
@@ -73,7 +73,7 @@ static int rpl_stat_plugin_init(void *p)
     // registration failed
     my_close(context->rpl_stat_log_file, MYF(0));
     my_free(context);
-    return 1;
+    DBUG_RETURN(1);
   } else{
     plugin->data= (void *)context;
   }
@@ -106,6 +106,10 @@ static int rpl_stat_plugin_deinit(void *p)
 /**
    build plugin requisites
 */
+struct st_mysql_show_var my_status_vars[]= {
+  {""},
+};
+
 struct Mysql_replication rpl_stat_plugin
 { MYSQL_REPLICATION_INTERFACE_VERSION };
 
