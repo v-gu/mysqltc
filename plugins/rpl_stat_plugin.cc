@@ -11,24 +11,28 @@
 
 #define LOG_LINE_BUFFER_SIZE 80
 
-File log_f;
+static File log_f;
 
-struct rpl_stat_context
+static struct st_rpl_stat_context
 {
-  unsigned long events_count;
+  unsigned long events_count= 0;
   File rpl_stat_log_file;
-};
+} rpl_stat_context;
 
 int rpl_stat_before_send_event(Binlog_transmit_param *param,
                                unsigned char *packet, unsigned long len,
                                const char *log_file, my_off_t log_pos)
 {
+  static long long counter= 0;
   uint32 server_id= param->server_id;
   char line_buf[LOG_LINE_BUFFER_SIZE];
+    
   
+  // my_snprintf(line_buf, sizeof(line_buf),
+  //             "server_id:%d, binlog_file:%s, offset:%d\n",
+  //             server_id, log_file, log_pos);
   my_snprintf(line_buf, sizeof(line_buf),
-              "server_id:%d, binlog_file:%s, offset:%d\n",
-              server_id, log_file, log_pos);
+              "%d\n", counter++);
   extern File log_f;
   my_write(log_f, (uchar*) line_buf, strlen(line_buf), MYF(0));
   
@@ -45,21 +49,21 @@ Binlog_transmit_observer transmit_observer = {
   NULL,                             // start
   NULL,                             // stop
   NULL,                             // reserve_header
-  rpl_stat_before_send_event,    // before_send_event
+  rpl_stat_before_send_event,       // before_send_event
   NULL,                             // after_send_event
   NULL,                             // reset
 };
 
+/**
+   plugin init function
+*/
 static int rpl_stat_plugin_init(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_init");
-  struct rpl_stat_context *context;
+  struct rpl_stat_context *context= rpl_stat_context;
   char log_filename[FN_REFLEN];
-
   struct st_plugin_int *plugin= (struct st_plugin_int *)p;
 
-  context= (struct rpl_stat_context *)
-    my_malloc(sizeof(struct rpl_stat_context), MYF(0));
   context->events_count= 0;
   fn_format(log_filename, "rpl-stat", "", ".log",
             MY_REPLACE_EXT | MY_UNPACK_FILENAME);
@@ -82,6 +86,9 @@ static int rpl_stat_plugin_init(void *p)
   DBUG_RETURN(0);
 }
 
+/**
+   plugin de-init function
+*/
 static int rpl_stat_plugin_deinit(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_deinit");
