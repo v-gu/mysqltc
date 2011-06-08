@@ -111,7 +111,6 @@ static int rpl_stat_plugin_deinit(void *p)
   struct st_rpl_stat_context *context= &rpl_stat_context;
 
   my_close(context->rpl_stat_log_file, MYF(0));
-  my_free(context);
 
   if (unregister_binlog_transmit_observer(&transmit_observer, p))
   {
