@@ -11,31 +11,53 @@
 
 #define LOG_LINE_BUFFER_SIZE 80
 
-static File log_f;
 
 static struct st_rpl_stat_context
 {
-  unsigned long events_count= 0;
-  File rpl_stat_log_file;
+  long long counter;         /* event counter, will be modded by 1000 */
+  File rpl_stat_log_file;       /* the log file to write to */
 } rpl_stat_context;
 
+/**
+   Write log
+*/
+static int write_stat_log(Binlog_transmit_param *param,
+                          const char *log_file, my_off_t log_pos)
+{
+  struct st_rpl_stat_context *context= &rpl_stat_context;
+  uint32 server_id= param->server_id;
+  char line_buf[LOG_LINE_BUFFER_SIZE];
+  
+  my_snprintf(line_buf, sizeof(line_buf),
+              "server_id:%d, binlog_file:%s, offset:%d\n",
+              server_id, log_file, log_pos);
+  my_write(context->rpl_stat_log_file, (uchar*) line_buf,
+           strlen(line_buf), MYF(0));
+  
+  DBUG_RETURN(0);
+}
+
+/**
+   when replication start, write replication position to log immediately
+*/
+int rpl_stat_transmit_start(Binlog_transmit_param *param,
+                            const char *log_file, my_off_t log_pos)
+{
+  DBUG_RETURN(write_stat_log(param, log_file, log_pos));
+}
+
+/**
+   when replicating, write replication position to log every 1000 times
+*/
 int rpl_stat_before_send_event(Binlog_transmit_param *param,
                                unsigned char *packet, unsigned long len,
                                const char *log_file, my_off_t log_pos)
 {
-  static long long counter= 0;
-  uint32 server_id= param->server_id;
-  char line_buf[LOG_LINE_BUFFER_SIZE];
-    
-  
-  // my_snprintf(line_buf, sizeof(line_buf),
-  //             "server_id:%d, binlog_file:%s, offset:%d\n",
-  //             server_id, log_file, log_pos);
-  my_snprintf(line_buf, sizeof(line_buf),
-              "%d\n", counter++);
-  extern File log_f;
-  my_write(log_f, (uchar*) line_buf, strlen(line_buf), MYF(0));
-  
+  struct st_rpl_stat_context *context= &rpl_stat_context;
+
+  if(context->counter++ % 1000 == 0)
+    DBUG_RETURN(write_stat_log(param, log_file, log_pos));
+
   DBUG_RETURN(0);
 }
 
@@ -60,17 +82,16 @@ Binlog_transmit_observer transmit_observer = {
 static int rpl_stat_plugin_init(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_init");
-  struct rpl_stat_context *context= rpl_stat_context;
+  struct st_rpl_stat_context *context= &rpl_stat_context;
   char log_filename[FN_REFLEN];
+
   struct st_plugin_int *plugin= (struct st_plugin_int *)p;
 
-  context->events_count= 0;
+  context->counter= 0;
   fn_format(log_filename, "rpl-stat", "", ".log",
             MY_REPLACE_EXT | MY_UNPACK_FILENAME);
   context->rpl_stat_log_file= my_open(log_filename, O_RDWR|O_APPEND|O_CREAT,
                                       MYF(0));
-  extern File log_f;
-  log_f= context->rpl_stat_log_file;
 
   if (register_binlog_transmit_observer(&transmit_observer, p))
   {
@@ -78,8 +99,6 @@ static int rpl_stat_plugin_init(void *p)
     my_close(context->rpl_stat_log_file, MYF(0));
     my_free(context);
     DBUG_RETURN(1);
-  } else{
-    plugin->data= (void *)context;
   }
 
   sql_print_information("*plugin %s regisitered", plugin->name.str);
@@ -92,12 +111,9 @@ static int rpl_stat_plugin_init(void *p)
 static int rpl_stat_plugin_deinit(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_deinit");
-
-  struct st_plugin_int *plugin= (struct st_plugin_int *)p;
-  struct rpl_stat_context *context= (struct rpl_stat_context *)plugin->data;
+  struct st_rpl_stat_context *context= &rpl_stat_context;
 
   my_close(context->rpl_stat_log_file, MYF(0));
-
   my_free(context);
 
   if (unregister_binlog_transmit_observer(&transmit_observer, p))
