@@ -2,11 +2,8 @@
    Replication plugin for MySQL.
 */
 
-//#include <stdlib.h>
-#include <my_global.h>
 #include <mysql/plugin.h>
-#include "sql_class.h"                          // THD
-#include <hash.h>
+#include "sql_class.h"
 #include <replication.h>
 
 #define LOG_LINE_BUFFER_SIZE 80
