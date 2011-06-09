@@ -10,14 +10,14 @@
 #define LOG_LINE_BUFFER_SIZE 80
 
 
-static struct st_rpl_stat_context
-{
-  long long counter;            /* event counter, will be modded by 1000 */
-  File rpl_stat_log_file;       /* the log file to write to */
-} rpl_stat_context;
 static HASH binlog_states;         /* need no lock on this */
 static mysql_mutex_t LOCK_rpl_log; /* rpl log file mutex */
 static mysql_mutex_t LOCK_hash;    /* HASH struct write lock */
+static struct st_rpl_stat_context
+{
+  File rpl_stat_log_file;       /* the log file to write to */
+} rpl_stat_context;
+
 
 /**
    HASH helpers
@@ -34,6 +34,7 @@ uchar* get_table_key(const uchar *ptr, size_t *plen, my_bool first)
   *plen= strlen(element->server_id);
   return (uchar *) element->server_id;
 }
+
 
 /**
    Write log
@@ -184,10 +185,6 @@ static int rpl_stat_plugin_deinit(void *p)
 /**
    build plugin requisites
 */
-struct st_mysql_show_var my_status_vars[]= {
-  {""},
-};
-
 struct Mysql_replication rpl_stat_plugin
 { MYSQL_REPLICATION_INTERFACE_VERSION };
 
