@@ -1,0 +1,15 @@
+compile & install:
+  to compile this plugin, MySQL-5.5.* source is required.
+  
+  1. assume you want to use plugin's directory name: rpl_stat ,
+     and assume you are under the same dir of this INSTALL file
+  2. mkdir <mysql-src-dir/plugin/rpl_stat
+  3. cp -r . <mysql-src-dir>/plugin/rpl_stat
+  4. cd <mysql-src-dir>
+  5. cmake source if not
+  6. make
+  7. cp <mysql-src-dir>/plugin/rpl_stat/rpl_stat_plugin.so to where your
+     MySQL 5.5.* installation directory is
+
+  
+  

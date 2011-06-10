@@ -103,7 +103,7 @@ sub purge_logs {
     }
     close($index_file) or die "$index_file: $!";
 
-    # strip out logs which still were using
+    # strip out logs which were still reading from
     my $binlog_file_count = @binlog_files;
     my @cur_binlog_files = values %rpl_stats;
     my $end = -1;

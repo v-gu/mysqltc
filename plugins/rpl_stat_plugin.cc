@@ -7,16 +7,12 @@
 #include <replication.h>
 #include <hash.h>
 
-#define LOG_LINE_BUFFER_SIZE 80
+#define LOG_LINE_BUFFER_SIZE 150
 
-
-static HASH binlog_states;         /* need no lock on this */
+static HASH binlog_states;
 static mysql_mutex_t LOCK_rpl_log; /* rpl log file mutex */
 static mysql_mutex_t LOCK_hash;    /* HASH struct write lock */
-static struct st_rpl_stat_context
-{
-  File rpl_stat_log_file;       /* the log file to write to */
-} rpl_stat_context;
+static File rpl_stat_log_file;     /* the log file to write to */
 
 
 /**
@@ -24,15 +20,25 @@ static struct st_rpl_stat_context
 */
 struct st_rpl_stat_element
 {
-  char *server_id;
-  char *log_file;
-  my_off_t log_pos;
+  char *server_id;              /* range: 0-4294967295 */
+  char *log_file;               /* the binlog file in read */
+  my_off_t log_pos;             /* the log position inside binlog file */
 };
 uchar* get_table_key(const uchar *ptr, size_t *plen, my_bool first)
 {
   st_rpl_stat_element *element= (st_rpl_stat_element *)ptr;
   *plen= strlen(element->server_id);
   return (uchar *) element->server_id;
+}
+void free_element(void *data)
+{
+  st_rpl_stat_element *element= (st_rpl_stat_element *)data;
+  
+  my_free(element->server_id);
+  my_free(element->log_file);
+  my_free(element);
+  
+  return;
 }
 
 
@@ -42,16 +48,15 @@ uchar* get_table_key(const uchar *ptr, size_t *plen, my_bool first)
 static int write_stat_log(Binlog_transmit_param *param,
                           const char *log_file, my_off_t log_pos)
 {
-  struct st_rpl_stat_context *context= &rpl_stat_context;
   char line_buf[LOG_LINE_BUFFER_SIZE];
-  char server_id[20];
+  char server_id[11];           /* for number in range: 0-4294967295 */
 
   my_snprintf(server_id, sizeof(server_id), "%d", param->server_id);
   
   /* check previous binlog stat */
   uchar *data= my_hash_search(&binlog_states, (uchar *)server_id,
                               strlen(server_id));
-  if (data)
+  if (data)                     /* modify old element */
   {
     st_rpl_stat_element *element= (st_rpl_stat_element *)data;
     if (strcmp(element->log_file, log_file) == 0)
@@ -60,12 +65,14 @@ static int write_stat_log(Binlog_transmit_param *param,
     }
     else
     {
+      my_free(element->server_id);
+      my_free(element->log_file);
       element->server_id= my_strdup(server_id, MYF(0));
       element->log_file= my_strdup(log_file, MYF(0));
       element->log_pos= log_pos;
     }
   }
-  else
+  else                          /* create new element */
   {
     st_rpl_stat_element *element= (st_rpl_stat_element *)
       my_malloc(sizeof(struct st_rpl_stat_element), MYF(0));
@@ -81,7 +88,7 @@ static int write_stat_log(Binlog_transmit_param *param,
               "server_id:%s, binlog_file:%s, offset:%d\n",
               server_id, log_file, log_pos);
   mysql_mutex_lock(&LOCK_rpl_log);
-  my_write(context->rpl_stat_log_file, (uchar*) line_buf,
+  my_write(rpl_stat_log_file, (uchar*) line_buf,
            strlen(line_buf), MYF(0));
   mysql_mutex_unlock(&LOCK_rpl_log);
   
@@ -94,6 +101,7 @@ static int write_stat_log(Binlog_transmit_param *param,
 int rpl_stat_transmit_start(Binlog_transmit_param *param,
                             const char *log_file, my_off_t log_pos)
 {
+  DBUG_ENTER("rpl_stat_transmit_start");
   DBUG_RETURN(write_stat_log(param, log_file, log_pos));
 }
 
@@ -104,6 +112,7 @@ int rpl_stat_before_send_event(Binlog_transmit_param *param,
                                unsigned char *packet, unsigned long len,
                                const char *log_file, my_off_t log_pos)
 {
+  DBUG_ENTER("rpl_stat_before_send_event");
   DBUG_RETURN(write_stat_log(param, log_file, log_pos));
 }
 
@@ -128,28 +137,25 @@ Binlog_transmit_observer transmit_observer = {
 static int rpl_stat_plugin_init(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_init");
-  struct st_rpl_stat_context *context= &rpl_stat_context;
   char log_filename[FN_REFLEN];
-
   struct st_plugin_int *plugin= (struct st_plugin_int *)p;
 
-  context->counter= 0;
   my_hash_init(&binlog_states, &my_charset_latin1, 4, 0, 0,
-               (my_hash_get_key) get_table_key, my_free, 0);
+               (my_hash_get_key) get_table_key, free_element, 0);
   fn_format(log_filename, "rpl-stat", "", ".log",
             MY_REPLACE_EXT | MY_UNPACK_FILENAME);
   mysql_mutex_init(0, &LOCK_rpl_log, MY_MUTEX_INIT_SLOW);
   mysql_mutex_init(0, &LOCK_hash, MY_MUTEX_INIT_SLOW);
-  mysql_mutex_lock(&LOCK_rpl_log);
 
-  context->rpl_stat_log_file= my_open(log_filename, O_RDWR|O_APPEND|O_CREAT,
-                                      MYF(0));
+  mysql_mutex_lock(&LOCK_rpl_log);
+  rpl_stat_log_file= my_open(log_filename, O_RDWR|O_APPEND|O_CREAT, MYF(0));
   if (register_binlog_transmit_observer(&transmit_observer, p))
   {
     // registration failed
-    my_close(context->rpl_stat_log_file, MYF(0));
+    my_close(rpl_stat_log_file, MYF(0));
     mysql_mutex_unlock(&LOCK_rpl_log);
     mysql_mutex_destroy(&LOCK_rpl_log);
+    mysql_mutex_destroy(&LOCK_hash);
     DBUG_RETURN(1);
   }
   mysql_mutex_unlock(&LOCK_rpl_log);
@@ -164,10 +170,9 @@ static int rpl_stat_plugin_init(void *p)
 static int rpl_stat_plugin_deinit(void *p)
 {
   DBUG_ENTER("rpl_stat_plugin_deinit");
-  struct st_rpl_stat_context *context= &rpl_stat_context;
 
   mysql_mutex_lock(&LOCK_rpl_log);
-  my_close(context->rpl_stat_log_file, MYF(0));
+  my_close(rpl_stat_log_file, MYF(0));
   mysql_mutex_unlock(&LOCK_rpl_log);
   mysql_mutex_destroy(&LOCK_rpl_log);
   mysql_mutex_destroy(&LOCK_hash);
@@ -185,7 +190,7 @@ static int rpl_stat_plugin_deinit(void *p)
 /**
    build plugin requisites
 */
-struct Mysql_replication rpl_stat_plugin
+struct Mysql_replication rpl_stat_plugin=
 { MYSQL_REPLICATION_INTERFACE_VERSION };
 
 
