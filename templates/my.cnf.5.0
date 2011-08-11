@@ -4,21 +4,21 @@ socket                              = /logs/mysql0/mysqld.sock
 
 
 [mysql]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [mysqladmin]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [mysqldump]
-default-character-set               = utf8
+default_character_set               = utf8
 quick
 max_allowed_packet                  = 256MB
 
 
 [myisamchk]
-default-character-set               = utf8
+default_character_set               = utf8
 key_buffer_size                     = 1GB
 myisam_sort_buffer_size             = 8MB
 read_buffer_size                    = 8MB
@@ -26,95 +26,96 @@ write_buffer_size                   = 2MB
 
 
 [mysqlhotcopy]
-interactive-timeout
+interactive_timeout
 
 
 [mysqlimport]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [mysqlshow]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [myisamchk]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [myisampack]
-default-character-set               = utf8
+default_character_set               = utf8
 
 
 [mysqld]
 # tracing
 #gdb
-core-file
+core_file
 #debug                               = d:t:i:o,/tmp/mysqld.trace
 #thread_handling                     = no-threads
 
 # generic configuration options
 port                                = 3306
 socket                              = /logs/mysql0/mysqld.sock
-#skip-name-resolve
-pid-file                            = /logs/mysql0/mysqld.pid
+#skip_name_resolve
+pid_file                            = /logs/mysql0/mysqld.pid
 user                                = mysql
-large-pages                         = 0
+large_pages                         = 0
 basedir                             = /usr/local/mysql/
 datadir                             = /data/mysql0/
 tmpdir                              = /tmp/
 local_infile                        = 1
-character-set-filesystem            = utf8
-character-set-server                = utf8
-collation-server                    = utf8_general_ci
-default-storage-engine              = InnoDB
+character_set_filesystem            = utf8
+character_set_server                = utf8
+collation_server                    = utf8_general_ci
+default_storage_engine              = InnoDB
 max_allowed_packet                  = 256MB
 max_connections                     = 2064
 max_user_connections                = 2048
 
 # general logging
-log-error                           = /logs/mysql0/mysqld.err
-log-warnings                        = 1
-log-queries-not-using-indexes       = 0
-log-slow-admin-statements           = 0
+log_error                           = /logs/mysql0/mysqld.err
+log_warnings                        = 1
+log_queries_not_using_indexes       = 0
+log_slow_admin_statements           = 0
 
 # privilege system
-#skip-grant-tables
+#skip_grant_tables
 
 # binlog
-log-bin                             = /logs/mysql0/mysql-bin
-log-bin-index                       = /logs/mysql0/mysql-bin.index
+log_bin                             = /logs/mysql0/mysql-bin
+log_bin_index                       = /logs/mysql0/mysql-bin.index
 max_binlog_size                     = 1GB
 sync_binlog                         = 0
-#binlog-do-db                        = <db_name>
-#binlog-ignore-db                    = <db_name>
+#binlog_do_db                        = <db_name>
+#binlog_ignore_db                    = <db_name>
 
 # replication:master
 server_id                           = 1
 #auto_increment_increment            = 10
 #auto_increment_offset               = 1
-#replicate-do-db                     = <db_name>
-replicate-ignore-db                 = mysql
-#replicate-do-table                  = <db_name>.<tbl_name>
-#replicate-wild-do-table             = <wild_db_name>.<wild_tbl_name>
-#replicate-ignore-table              = <db_name>.<tbl_name>
-#replicate-wild-ignore-table         = <wild_db_name>.<wild_tbl_name>
-#replicate-rewrite-db                = <from_db_name>-><to_db_name>
-#report-port                         = <if_non_default>
+#replicate_do_db                     = <db_name>
+replicate_ignore_db                 = mysql
+replicate_ignore_db                 = mysql.%
+#replicate_do_table                  = <db_name>.<tbl_name>
+#replicate_wild_do_table             = <wild_db_name>.<wild_tbl_name>
+#replicate_ignore_table              = <db_name>.<tbl_name>
+#replicate_wild_ignore_table         = <wild_db_name>.<wild_tbl_name>
+#replicate_rewrite_db                = <from_db_name>_><to_db_name>
+#report_port                         = <if_non_default>
 
 # replication:slave
 #init_slave                          = ''
-replicate-same-server-id            = 0
-master-info-file                    = /logs/mysql0/master.info
-relay-log-info-file                 = /logs/mysql0/relay-log.info
-relay-log                           = /logs/mysql0/relay-bin
+replicate_same_server_id            = 0
+master_info_file                    = /logs/mysql0/master.info
+relay_log_info_file                 = /logs/mysql0/relay-log.info
+relay_log                           = /logs/mysql0/relay-bin
 relay_log_index                     = /logs/mysql0/relay-bin.index
 slave_compressed_protocol           = 0
-slave-load-tmpdir                   = /logs/tmp/
-slave-net-timeout                   = 3600
-skip-slave-start                    = 1
-#slave-skip-errors                   = 
-report-host                         = 
-report-port                         = 3306
+slave_load_tmpdir                   = /logs/tmp/
+slave_net_timeout                   = 3600
+skip_slave_start                    = 1
+#slave_skip_errors                   = 
+report_host                         = 
+report_port                         = 3306
 
 # general optimization
 query_cache_size                    = 0
