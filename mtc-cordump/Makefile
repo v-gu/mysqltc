@@ -2,8 +2,8 @@
 
 include $(GOROOT)/src/Make.inc
 
-TARG=mtc-syncdump
+TARG=mtc-cordump
 GOFILES=\
-		mtc-syncdump.go\
+		mtc-cordump.go\
 
 include $(GOROOT)/src/Make.cmd
