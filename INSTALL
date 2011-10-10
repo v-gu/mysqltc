@@ -1,0 +1,5 @@
+Run:
+
+  ./src/make.sh
+
+Then check the 'bin' directory.

@@ -1,0 +1,29 @@
+MySQL replication monitor.
+
+FEATURES:
+
+ - Replication error logging and resuming.
+
+
+DESCRIPTION:
+
+  This tool will check a single MySQL instance's replication status based on
+  timely fashion. Normally it does nothing but printing out replication status,
+  but it has many features that will help improve the condition of replication.
+
+
+DEFINITION:
+
+  The syntax is specified using Extended Backus-Naur Form (EBNF):
+  
+  mtc-rpl-monitor [ Options ] Nid .
+
+  Nid         = `"` NidParams { "," NidParams } `"` .
+  NidParams   = ("h=" | "P=" | "u=" | "p=") string .
+
+
+USE CASES:
+  
+  - Monitor instance's sql_thread, skip over and log error SQLs.
+
+    mtc-rpl-monitor 
