@@ -22,7 +22,8 @@ import (
 	"os"
 	"flag"
 	"fmt"
-	"strings"
+	// "strings"
+	// "strconv"
 
 	l4g "log4go.googlecode.com/hg"
 	// mymysql "github.com/ziutek/mymysql"
@@ -78,27 +79,28 @@ func ParseArgs() {
 		os.Exit(1)
 	}
 	// parse nodes
-	dumpNodes := fs.Args()
-	for _, node := range dumpNodes {
-		params := strings.Split(node, ",")
-		for _, param := range params {
-			var host, user, pass string
-			var masterHost, masterFile string
-			tokens := strings.Split(param, "=")
-			if len(tokens) < 2 || len(tokens[1]) == 0 {
-				err := fmt.Sprintf("bad formatted Nid: \"%v\"\n", node)
-				panic(err)
-			}
-			switch tokens[0] {
-			case "h":
-				host = tokens[1]
-			case "P":
-				port = tokens[1]
-			}
+	// dumpNodes := fs.Args()
+	// for _, node := range dumpNodes {
+	// 	params := strings.Split(node, ",")
+	// 	for _, param := range params {
+	// 		var host, user, pass string
+	// 		var port int
+	// 		var masterHost, masterFile string
+	// 		tokens := strings.Split(param, "=")
+	// 		if len(tokens) < 2 || len(tokens[1]) == 0 {
+	// 			err := fmt.Sprintf("bad formatted Nid: \"%v\"\n", node)
+	// 			panic(err)
+	// 		}
+	// 		switch tokens[0] {
+	// 		case "h":
+	// 			host = tokens[1]
+	// 		case "P":
+	// 			port, err := strconv.Atoi(tokens[1])
+	// 		}
 
-		}
-		// append(nodes, Node{host: })
-	}
+	// 	}
+	// 	// append(nodes, Node{host: })
+	// }
 }
 
 func main() {

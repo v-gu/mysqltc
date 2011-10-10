@@ -103,9 +103,6 @@ func checkRplStatus(mysql *mymy.MySQL) (shutdown bool) {
 	return false
 }
 
-func complain() {
-}
-
 func sendMail(addr string, content string) {
 
 }
