@@ -1,8 +1,10 @@
-ROOT="$PWD/$(dirname $0)/../"
-GOPATH="$ROOT"
-export GOPATH
-MAKE=make
-VERBOSE=false
+#!/usr/bin/env sh
+
+# select which applications to install
+APPS="mtc-cordump mtc-rpl-monitor"
+
+
+. "$(dirname $0)/env.sh"
 
 # parse opts
 while getopts "v" opt; do
@@ -15,10 +17,11 @@ while getopts "v" opt; do
     esac
 done
 
-if [ "$VERBOSE" == "true" ]; then
-    goinstall -v mtc-cordump
-    goinstall -v mtc-rpl-monitor
-else
-    goinstall mtc-cordump
-    goinstall mtc-rpl-monitor
-fi
+for i in $APPS;
+do
+    if [ "$VERBOSE" = "true" ]; then
+        goinstall -v "$i"
+    else
+        goinstall "$i"
+    fi
+done
