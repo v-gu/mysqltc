@@ -17,6 +17,9 @@ while getopts "v" opt; do
     esac
 done
 
+# clean up src folder
+eval "$(dirname $0)/clean.sh" >/dev/null 2>&1
+
 for i in $APPS;
 do
     if [ "$VERBOSE" = "true" ]; then
