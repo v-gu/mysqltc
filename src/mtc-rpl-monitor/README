@@ -1,8 +1,8 @@
-MySQL replication monitor.
+MySQL replication SQL error monitor.
 
 FEATURES:
 
- - Replication error logging and resuming.
+ - Replication SQL thread error logging and resuming.
 
 
 DESCRIPTION:
@@ -16,7 +16,7 @@ DEFINITION:
 
   The syntax is specified using Extended Backus-Naur Form (EBNF):
   
-  mtc-rpl-monitor [ Options ] Nid .
+  mtc-rpl-sqlerr-monitor [ Options ] Nid .
 
   Nid         = `"` NidParams { "," NidParams } `"` .
   NidParams   = ("h=" | "P=" | "u=" | "p=") string .
@@ -26,4 +26,4 @@ USE CASES:
   
   - Monitor instance's sql_thread, skip over and log error SQLs.
 
-    mtc-rpl-monitor 
+    mtc-rpl-sqlerr-monitor 

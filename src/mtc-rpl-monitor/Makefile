@@ -1,7 +1,7 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=mtc-rpl-monitor
+TARG=mtc-rpl-sqlerr-monitor
 GOFILES=\
-	mtc-rpl-monitor.go\
+	mtc-rpl-sqlerr-monitor.go\
 
 include $(GOROOT)/src/Make.cmd

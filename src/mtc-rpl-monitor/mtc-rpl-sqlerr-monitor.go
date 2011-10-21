@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"io/ioutil"
 	"flag"
 	"fmt"
 	"strings"
@@ -20,9 +21,10 @@ var (
 	retryInterval *int    = fs.Int("r", 60, "retry interval, in second(s)")
 	interval      *int    = fs.Int("t", 60, "sleep interval between two checks, in second(s)")
 	skip          *bool   = fs.Bool("s", true, "whether skip error")
-	mailAddrStr   *string = fs.String("m", "guchunjiang@pwrd.com,guchunjiang@wanmei.com", "mail addresses, delimited by ','")
+	mailAddrStr   *string = fs.String("m", "vincent.gu@perfectworld.com", "mail addresses, delimited by ','")
 	mailcmd       *string = fs.String("mail", "/usr/sbin/sendmail -t", "path to MTA")
-	logFileName   *string = fs.String("f", os.Stderr.Name(), "output replication error log file")
+	logFileName   *string = fs.String("e", os.Stderr.Name(), "general log filename")
+	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
 	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
 	// NID
@@ -31,12 +33,17 @@ var (
 	user string
 	pass string
 	// logging
-	log      = make(l4g.Logger)
-	logLevel = l4g.INFO
-	logFile  = os.Stderr
+	log        = make(l4g.Logger)
+	logLevel   = l4g.INFO
+	logFile    = os.Stderr
+	sqlog      = make(l4g.Logger)
+	sqlogLevel = l4g.INFO
+	sqlogFile  = os.Stdout
 	// logic
-	mailAddrs []string
-	errorCount int
+	mailAddrs   []string
+	errorCount  int
+	prevMasFile string
+	prevMasPos  string
 )
 
 func parseFlags() {
@@ -107,7 +114,56 @@ func parseFlags() {
 func sendMail(content string) {
 	tokens := strings.Split(*mailcmd, " ")
 	cmd := exec.Command(tokens[0], tokens[1:]...)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		log.Warn("allocate stdin for sendmail failed: %v", err)
+		return
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Warn("failed to allocate stdout for sendmail: %v", err)
+		return
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Warn("failed to allocate stderr for sendmail: %v", err)
+		return
+	}
+	// send inputs
+	stdin.Write([]byte(fmt.Sprintf("From: mtc-rpl-monitor@perfectworld.com\n")))
+	stdin.Write([]byte(fmt.Sprintf("Subject: Replication error on %v\n", host)))
+	stdin.Write([]byte(fmt.Sprintf("To: %v\n", mailAddrStr)))
+	stdin.Write([]byte(fmt.Sprintf("Date: %v\n", time.LocalTime())))
+	stdin.Write([]byte(fmt.Sprintf("Content-Type: text/plain\n")))
+	stdin.Write([]byte(fmt.Sprintf("\n")))
+	stdin.Write([]byte(fmt.Sprintf("%v\n", content)))
+	if *skip {
+		stdin.Write([]byte(fmt.Sprintf("\nNote: this error was jumped and " +
+			"logged.\n")))
+	} else {
+		stdin.Write([]byte(fmt.Sprintf("\nWarnning: this error was logged " +
+			"but still blocking the replication.\n")))
+	}
+	stdin.Write([]byte(fmt.Sprintf("\n-- \nmtc-rpl-monitor")))
+	stdin.Close()
 	cmd.Start()
+	// acquire outputs
+	out, err := ioutil.ReadAll(stdout)
+	stdout.Close()
+	if err != nil {
+		log.Warn("failed to read STDOUT from sendmail: %v", err)
+	}
+	error, err := ioutil.ReadAll(stderr)
+	stderr.Close()
+	if err != nil {
+		log.Warn("failed to read STDERR from sendmail: %v", err)
+	}
+	if out != nil {
+		log.Info(out)
+	}
+	if error != nil {
+		log.Warn(error)
+	}
 }
 
 func isMySQLError(err *os.Error) bool {
@@ -133,10 +189,17 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	errorNo := strings.TrimSpace(rows[0].Str(res.Map["Last_Errno"]))
 	lastError := strings.TrimSpace(rows[0].Str(res.Map["Last_Error"]))
 	if lastError != "" {
+		// check repetition
+		if masterFile == prevMasFile && masterPos == prevMasPos {
+			// is repetitive, ignored
+			return true, false
+		} else {
+			prevMasFile, prevMasPos = masterFile, masterPos
+		}
 		// log Last_Error
-		msg := fmt.Sprintf("[%v %v] #%v: %v", 
+		msg := fmt.Sprintf("[%v %v] #%v: %v",
 			masterFile, masterPos, errorNo, lastError)
-		log.Info(msg)
+		sqlog.Info(msg)
 		sendMail(msg)
 		// skip Last_Error
 		_, _, err = mysql.Query(
@@ -158,14 +221,19 @@ func main() {
 	parseFlags()
 	log.AddFilter("stderr", logLevel,
 		l4g.NewFormatLogWriter(logFile, "[%d %t] [%L] %M"))
+	defer log.Close()
+	sqlog.AddFilter("stdout", sqlogLevel,
+		l4g.NewFormatLogWriter(sqlogFile, "[%d %t] %M"))
+	defer sqlog.Close()
 
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(err)
+			sqlog.Close()
+			log.Close()
 			os.Exit(1)
 		}
 	}()
-	defer log.Close()
 
 	// query slave status from MySQL instance
 	mysql := mymy.New("tcp", "", host+":"+port, user, pass)
