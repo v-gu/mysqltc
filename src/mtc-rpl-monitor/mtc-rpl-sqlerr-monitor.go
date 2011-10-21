@@ -13,6 +13,11 @@ import (
 	mymy "github.com/ziutek/mymysql"
 )
 
+const (
+	IO_ERROR  = "IO_ERROR"
+	SQL_ERROR = "SQL_ERROR"
+)
+
 var (
 	// general
 	cmdname string        = os.Args[0]
@@ -22,7 +27,8 @@ var (
 	interval      *int    = fs.Int("t", 60, "sleep interval between two checks, in second(s)")
 	skip          *bool   = fs.Bool("s", true, "whether skip error")
 	mailAddrStr   *string = fs.String("m", "vincent.gu@perfectworld.com", "mail addresses, delimited by ','")
-	mailcmd       *string = fs.String("mail", "/usr/sbin/sendmail -t", "path to MTA")
+	mailcmd       *string = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
+	mailSendGap   *int    = fs.Int("g", 30, "how many retries before send out remider mail with the same topic")
 	logFileName   *string = fs.String("e", os.Stderr.Name(), "general log filename")
 	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
@@ -40,10 +46,12 @@ var (
 	sqlogLevel = l4g.INFO
 	sqlogFile  = os.Stdout
 	// logic
-	mailAddrs   []string
-	errorCount  int
-	prevMasFile string
-	prevMasPos  string
+	hostname      string
+	errorCount    int
+	masterHost    string
+	masterPort    string
+	gsid          uint64                  // global sequence id
+	errorStatuses map[string]*ErrorStatus = make(map[string]*ErrorStatus, 2)
 )
 
 func parseFlags() {
@@ -66,7 +74,7 @@ func parseFlags() {
 	// check log level
 	switch *logLevelStr {
 	case "debug":
-		logLevel = l4g.INFO
+		logLevel = l4g.DEBUG
 	case "warn":
 		logLevel = l4g.WARNING
 	case "error":
@@ -108,10 +116,29 @@ func parseFlags() {
 	if err != nil {
 		panic(fmt.Sprint(err))
 	}
-	mailAddrs = strings.Split(*mailAddrStr, ",")
 }
 
-func sendMail(content string) {
+type RplError struct {
+	errType string
+	errno   string
+	error   string
+	logFile string
+	pos     string
+}
+
+func (err *RplError) string() string {
+	return fmt.Sprintf("[%v-%v] #%v: %v",
+		err.logFile, err.pos, err.errno, err.error)
+}
+
+type ErrorStatus struct {
+	sid         uint64 // sequence id
+	rplError    *RplError
+	repeatCount int
+	msg         string // problem resolve message
+}
+
+func sendmail(content string) {
 	tokens := strings.Split(*mailcmd, " ")
 	cmd := exec.Command(tokens[0], tokens[1:]...)
 	stdin, err := cmd.StdinPipe()
@@ -129,22 +156,21 @@ func sendMail(content string) {
 		log.Warn("failed to allocate stderr for sendmail: %v", err)
 		return
 	}
-	// send inputs
-	stdin.Write([]byte(fmt.Sprintf("From: mtc-rpl-monitor@perfectworld.com\n")))
-	stdin.Write([]byte(fmt.Sprintf("Subject: Replication error on %v\n", host)))
-	stdin.Write([]byte(fmt.Sprintf("To: %v\n", mailAddrStr)))
-	stdin.Write([]byte(fmt.Sprintf("Date: %v\n", time.LocalTime())))
-	stdin.Write([]byte(fmt.Sprintf("Content-Type: text/plain\n")))
-	stdin.Write([]byte(fmt.Sprintf("\n")))
-	stdin.Write([]byte(fmt.Sprintf("%v\n", content)))
-	if *skip {
-		stdin.Write([]byte(fmt.Sprintf("\nNote: this error was jumped and " +
-			"logged.\n")))
-	} else {
-		stdin.Write([]byte(fmt.Sprintf("\nWarnning: this error was logged " +
-			"but still blocking the replication.\n")))
-	}
-	stdin.Write([]byte(fmt.Sprintf("\n-- \nmtc-rpl-monitor")))
+	// format header
+	var header, signature string
+	header += fmt.Sprintf("To: %v\n", *mailAddrStr)
+	header += fmt.Sprintf("Subject: MySQL replication error on [%v:%v]\n",
+		host, port)
+	header += fmt.Sprintf("From: /%v/mtc-rplerr-monitor\n", hostname)
+	header += fmt.Sprintf("Date: %v\n", time.LocalTime())
+	header += fmt.Sprintf("\n")
+	header += fmt.Sprintf("Error detected on MySQL replication chain "+
+		"%v:%v -> %v:%v\n", masterHost, masterPort, host, port)
+	signature += fmt.Sprintf("\n-- \nRegards,\nmtc-rplerr-monitor")
+	log.Debug("mail:\n%v%v%v", header, content, signature)
+	stdin.Write([]byte(header))
+	stdin.Write([]byte(content))
+	stdin.Write([]byte(signature))
 	stdin.Close()
 	cmd.Start()
 	// acquire outputs
@@ -158,11 +184,11 @@ func sendMail(content string) {
 	if err != nil {
 		log.Warn("failed to read STDERR from sendmail: %v", err)
 	}
-	if out != nil {
-		log.Info(out)
+	if out != nil && len(out) > 0 {
+		log.Info(string(out))
 	}
-	if error != nil {
-		log.Warn(error)
+	if error != nil && len(error) > 0 {
+		log.Warn(string(error))
 	}
 }
 
@@ -174,47 +200,137 @@ func isMySQLError(err *os.Error) bool {
 }
 
 func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
+	slave, reconnect = true, false
 	rows, res, err := mysql.Query("SHOW SLAVE STATUS")
 	if err != nil {
 		log.Warn("'SHOW SLAVE STATUS' returned with error: %v", err)
-		return true, !isMySQLError(&err)
+		reconnect = !isMySQLError(&err)
+		return
 	}
 	if len(rows) == 0 {
 		log.Error("can't find slave info on this instance")
-		return false, false
+		slave, reconnect = false, false
+		return
 	}
-	masterFile := strings.TrimSpace(
-		rows[0].Str(res.Map["Relay_Master_Log_File"]))
-	masterPos := strings.TrimSpace(rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
-	errorNo := strings.TrimSpace(rows[0].Str(res.Map["Last_Errno"]))
-	lastError := strings.TrimSpace(rows[0].Str(res.Map["Last_Error"]))
-	if lastError != "" {
-		// check repetition
-		if masterFile == prevMasFile && masterPos == prevMasPos {
-			// is repetitive, ignored
-			return true, false
+	gsid += 1
+	log.Debug("current gsid: %v", gsid)
+	masterHost = strings.TrimSpace(rows[0].Str(res.Map["Master_Host"]))
+	if masterHost == "127.0.0.1" {
+		masterHost = host
+	}
+	masterPort = strings.TrimSpace(rows[0].Str(res.Map["Master_Port"]))
+	var rplErrors []*RplError
+	// check IO error
+	errNo := strings.TrimSpace(rows[0].Str(res.Map["Last_IO_Errno"]))
+	if errNo != "0" {
+		error := strings.TrimSpace(rows[0].Str(res.Map["Last_IO_Error"]))
+		file := strings.TrimSpace(rows[0].Str(res.Map["Master_Log_File"]))
+		pos := strings.TrimSpace(rows[0].Str(res.Map["Read_Master_Log_Pos"]))
+		rplError := &RplError{IO_ERROR, errNo, error, file, pos}
+		rplErrors = append(rplErrors, rplError)
+		log.Debug("add IO error: %v", rplError)
+	}
+	// check SQL error
+	errNo = strings.TrimSpace(rows[0].Str(res.Map["Last_SQL_Errno"]))
+	if errNo != "0" {
+		error := strings.TrimSpace(rows[0].Str(res.Map["Last_SQL_Error"]))
+		file := strings.TrimSpace(rows[0].Str(res.Map["Relay_Master_Log_File"]))
+		pos := strings.TrimSpace(rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
+		rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
+		rplErrors = append(rplErrors, rplError)
+		log.Debug("add SQL error: %v", rplError)
+	}
+	// check repetition
+	for _, rplError := range rplErrors {
+		if prevErr := errorStatuses[rplError.errType]; prevErr == nil {
+			errorStatus := &ErrorStatus{gsid, rplError, 0, ""}
+			errorStatuses[rplError.errType] = errorStatus
 		} else {
-			prevMasFile, prevMasPos = masterFile, masterPos
-		}
-		// log Last_Error
-		msg := fmt.Sprintf("[%v %v] #%v: %v",
-			masterFile, masterPos, errorNo, lastError)
-		sqlog.Info(msg)
-		sendMail(msg)
-		// skip Last_Error
-		_, _, err = mysql.Query(
-			"SET GLOBAL SQL_SLAVE_SKIP_COUNTER = 1")
-		if err != nil {
-			log.Warn("trying to skip error but: %v", err)
-			return true, !isMySQLError(&err)
-		}
-		_, _, err = mysql.Query("START SLAVE SQL_THREAD")
-		if err != nil {
-			log.Warn("trying to restart slave sql_thread but: %v", err)
-			return true, !isMySQLError(&err)
+			if (gsid-prevErr.sid) > 1 || // fell too far behind
+				rplError.pos != prevErr.rplError.pos ||
+				rplError.logFile != prevErr.rplError.logFile {
+				prevErr.rplError = rplError
+				prevErr.repeatCount = 0
+			} else {
+				prevErr.repeatCount += 1
+			}
+			prevErr.sid = gsid // set sid up-to-date
+			prevErr.msg = ""
 		}
 	}
-	return true, false
+	// deal with the situation
+	for errorType, errorStatus := range errorStatuses {
+		rplError := errorStatus.rplError
+		if errorStatus.sid != gsid {
+			log.Debug("do not process %v [%v-%v] because its obsoleted",
+				errorType, rplError.logFile, rplError.pos)
+			continue
+		}
+		log.Debug("Processing %v [%v-%v]",
+			errorType, rplError.logFile, rplError.pos)
+		if errorStatus.repeatCount == 0 {
+			log.Info("found rpl error: #%v@[%v-%v]",
+				rplError.errno, rplError.logFile, rplError.pos)
+		}
+		if *skip {
+			if errorType == SQL_ERROR {
+				log.Info("trying to skip rpl error: #%v@[%v-%v]",
+					rplError.errno, rplError.logFile, rplError.pos)
+				_, _, err = mysql.Query(
+					"SET GLOBAL SQL_SLAVE_SKIP_COUNTER = 1")
+				if err != nil {
+					msg := fmt.Sprintf("trying to skip error but: %v, will "+
+						"retry later.", err)
+					log.Warn(msg)
+					errorStatus.msg = msg
+					reconnect = reconnect || !isMySQLError(&err)
+					continue
+				}
+				_, _, err = mysql.Query("START SLAVE SQL_THREAD")
+				if err != nil {
+					msg := fmt.Sprintf("trying to restart slave sql_thread "+
+						"but: %v, will retry later", err)
+					log.Warn(msg)
+					errorStatus.msg = msg
+					reconnect = reconnect || !isMySQLError(&err)
+					continue
+				}
+			}
+		}
+	}
+	// format mail contents
+	var mail string
+	for errorType, errorStatus := range errorStatuses {
+		rplError := errorStatus.rplError
+		if errorStatus.sid != gsid {
+			log.Debug("do not process %v [%v-%v] because its obsoleted",
+				errorType, rplError.logFile, rplError.pos)
+			continue
+		}
+		if errorStatus.repeatCount%*mailSendGap != 0 {
+			continue
+		}
+		log.Debug("formatting mail for %v [%v-%v]",
+			errorType, rplError.logFile, rplError.pos)
+		mail += fmt.Sprintf("\n%v:\n", errorType)
+		mail += fmt.Sprintf("  - %v\n", rplError.string())
+		if errorStatus.msg != "" {
+			mail += fmt.Sprintf("  - %v\n", errorStatus.msg)
+		} else {
+			if *skip {
+				mail += fmt.Sprintf("  - Note: this error was jumped and " +
+					"logged.\n")
+			} else {
+				mail += fmt.Sprintf("  - WARNING: this error was logged " +
+					"but still blocking the replication, manual override " +
+					"is required.\n")
+			}
+		}
+	}
+	if mail != "" {
+		go sendmail(mail)
+	}
+	return
 }
 
 func main() {
@@ -235,6 +351,7 @@ func main() {
 		}
 	}()
 
+	hostname, _ = os.Hostname()
 	// query slave status from MySQL instance
 	mysql := mymy.New("tcp", "", host+":"+port, user, pass)
 	defer mysql.Close()
