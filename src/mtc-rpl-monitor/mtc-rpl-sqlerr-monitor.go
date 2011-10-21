@@ -127,7 +127,7 @@ type RplError struct {
 }
 
 func (err *RplError) string() string {
-	return fmt.Sprintf("[%v-%v] #%v: %v",
+	return fmt.Sprintf("[%v %v] #%v: %v",
 		err.logFile, err.pos, err.errno, err.error)
 }
 
@@ -262,19 +262,19 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	for errorType, errorStatus := range errorStatuses {
 		rplError := errorStatus.rplError
 		if errorStatus.sid != gsid {
-			log.Debug("do not process %v [%v-%v] because its obsoleted",
+			log.Debug("do not process %v [%v %v] because its obsoleted",
 				errorType, rplError.logFile, rplError.pos)
 			continue
 		}
-		log.Debug("Processing %v [%v-%v]",
+		log.Debug("Processing %v [%v %v]",
 			errorType, rplError.logFile, rplError.pos)
 		if errorStatus.repeatCount == 0 {
-			log.Info("found rpl error: #%v@[%v-%v]",
+			log.Info("found rpl error: #%v@[%v %v]",
 				rplError.errno, rplError.logFile, rplError.pos)
 		}
 		if *skip {
 			if errorType == SQL_ERROR {
-				log.Info("trying to skip rpl error: #%v@[%v-%v]",
+				log.Info("trying to skip rpl error: #%v@[%v %v]",
 					rplError.errno, rplError.logFile, rplError.pos)
 				_, _, err = mysql.Query(
 					"SET GLOBAL SQL_SLAVE_SKIP_COUNTER = 1")
@@ -303,14 +303,14 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	for errorType, errorStatus := range errorStatuses {
 		rplError := errorStatus.rplError
 		if errorStatus.sid != gsid {
-			log.Debug("do not process %v [%v-%v] because its obsoleted",
+			log.Debug("do not process %v [%v %v] because its obsoleted",
 				errorType, rplError.logFile, rplError.pos)
 			continue
 		}
 		if errorStatus.repeatCount%*mailSendGap != 0 {
 			continue
 		}
-		log.Debug("formatting mail for %v [%v-%v]",
+		log.Debug("formatting mail for %v [%v %v]",
 			errorType, rplError.logFile, rplError.pos)
 		mail += fmt.Sprintf("\n%v:\n", errorType)
 		mail += fmt.Sprintf("  - %v\n", rplError.string())
