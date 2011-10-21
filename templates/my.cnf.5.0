@@ -141,6 +141,6 @@ innodb_log_files_in_group           = 2
 innodb_log_file_size                = 64MB
 innodb_thread_concurrency           = 0
 innodb_flush_method                 = O_DIRECT
-innodb_lock_wait_timeout            = 50
+innodb_lock_wait_timeout            = 600 # defaults to 50
 innodb_data_home_dir                = /data/mysql0/
 innodb_log_group_home_dir           = /data/mysql0/
