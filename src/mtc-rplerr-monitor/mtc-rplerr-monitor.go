@@ -37,7 +37,7 @@ var (
 	host string = "localhost"
 	port string = "3306"
 	user string
-	pass string
+	pass string = "pass"
 	// logging
 	log        = make(l4g.Logger)
 	logLevel   = l4g.INFO
