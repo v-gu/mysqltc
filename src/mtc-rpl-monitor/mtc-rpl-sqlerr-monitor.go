@@ -297,6 +297,12 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 				}
 			}
 		}
+		if errorType == IO_ERROR {
+			msg := fmt.Sprintf("IO_ERROR cannot be processed automatically.\n")
+			log.Warn(msg)
+			errorStatus.msg = msg
+			continue
+		}
 	}
 	// format mail contents
 	var mail string
@@ -313,7 +319,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		log.Debug("formatting mail for %v [%v %v]",
 			errorType, rplError.logFile, rplError.pos)
 		mail += fmt.Sprintf("\n%v:\n", errorType)
-		mail += fmt.Sprintf("  - %v\n", rplError.string())
+		mail += fmt.Sprintf("  - WARNING: %v\n", rplError.string())
 		if errorStatus.msg != "" {
 			mail += fmt.Sprintf("  - %v\n", errorStatus.msg)
 		} else {
