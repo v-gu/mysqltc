@@ -166,7 +166,8 @@ func sendmail(content string) {
 	header += fmt.Sprintf("\n")
 	header += fmt.Sprintf("Error detected on MySQL replication chain "+
 		"%v:%v -> %v:%v\n", masterHost, masterPort, host, port)
-	signature += fmt.Sprintf("\n-- \nRegards,\nmtc-rplerr-monitor")
+	signature += fmt.Sprintf("\n-- \nRegards,\nmtc-rplerr-monitor\n")
+	signature += fmt.Sprintf("PLESASE DO NOT REPLY DIRECTLY TO THIS EMAIL")
 	log.Debug("mail:\n%v%v%v", header, content, signature)
 	stdin.Write([]byte(header))
 	stdin.Write([]byte(content))
@@ -298,7 +299,8 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 			}
 		}
 		if errorType == IO_ERROR {
-			msg := fmt.Sprintf("IO_ERROR cannot be processed automatically.\n")
+			msg := fmt.Sprintf("IO_ERROR cannot only be resolved manually or " +
+				"by itself.\n")
 			log.Warn(msg)
 			errorStatus.msg = msg
 			continue
