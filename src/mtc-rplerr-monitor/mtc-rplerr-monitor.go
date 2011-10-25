@@ -33,6 +33,7 @@ var (
 	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
 	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
+	pidfileName   *string = fs.String("pidfile", "", "file existed only when program was running, with PID filled in")
 	// NID
 	host string = "localhost"
 	port string = "3306"
@@ -342,6 +343,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 }
 
 func main() {
+	// init
 	parseFlags()
 	log.AddFilter("stderr", logLevel,
 		l4g.NewFormatLogWriter(logFile, "[%d %t] [%L] %M"))
@@ -349,7 +351,6 @@ func main() {
 	sqlog.AddFilter("stdout", sqlogLevel,
 		l4g.NewFormatLogWriter(sqlogFile, "[%d %t] %M"))
 	defer sqlog.Close()
-
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(err)
@@ -358,6 +359,20 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	// mark pidfile
+	if *pidfileName != "" {
+		pidfile, err := os.OpenFile(*pidfileName, os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot create PID file:%v", err))
+		}
+		defer func() {
+			pidfile.Close()
+			err := os.Remove(*pidfileName)
+			log.Debug("failed to remove pidfile: %v", err)
+		}()
+		fmt.Fprint(pidfile, os.Getpid)
+	}
 
 	hostname, _ = os.Hostname()
 	// query slave status from MySQL instance
