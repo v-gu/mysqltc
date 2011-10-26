@@ -345,6 +345,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 
 func createPidfile() {
 	if *pidfileName != "" {
+		log.Debug("creating pidfile: %v", *pidfileName)
 		pidfile, err := os.OpenFile(*pidfileName,
 			os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
