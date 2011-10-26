@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/signal"
 	"io/ioutil"
 	"flag"
 	"fmt"
@@ -342,43 +343,74 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	return
 }
 
+func createPidfile() {
+	if *pidfileName != "" {
+		pidfile, err := os.OpenFile(*pidfileName, os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot create PID file:%v", err))
+		}
+		fmt.Fprint(pidfile, os.Getpid)
+		pidfile.Close()
+		log.Debug("pidfile %v created", *pidfileName)
+	}
+}
+func removePidfile() {
+	err := os.Remove(*pidfileName)
+	if err != nil {
+		log.Debug("failed to remove pidfile %v: %v", *pidfileName, err)
+	} else {
+		log.Debug("pidfile %v created", *pidfileName)
+	}
+}
+
+func exit(err interface{}) {
+	if err != nil {
+		log.Error(err)
+		log.Info("aborting...")
+	} else {
+		log.Info("stopping...")
+	}
+	removePidfile()
+	sqlog.Close()
+	log.Close()
+	if err != nil {
+		os.Exit(1)
+	} else {
+		os.Exit(0)
+	}
+}
+
 func main() {
-	// init
+	// parse command line flags
 	parseFlags()
+	// init logger
 	log.AddFilter("stderr", logLevel,
 		l4g.NewFormatLogWriter(logFile, "[%d %t] [%L] %M"))
 	defer log.Close()
 	sqlog.AddFilter("stdout", sqlogLevel,
 		l4g.NewFormatLogWriter(sqlogFile, "[%d %t] %M"))
 	defer sqlog.Close()
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error(err)
-			sqlog.Close()
-			log.Close()
-			os.Exit(1)
+	// global error catching
+	defer exit(recover())
+	createPidfile()
+	// spawn os signal handler
+	go func() {
+		for {
+			switch sig := (<-signal.Incoming).(os.UnixSignal); sig {
+			case os.SIGINT, os.SIGHUP, os.SIGQUIT, os.SIGTERM, os.SIGKILL:
+				{
+					panic(fmt.Sprintf("%v received", sig))
+				}
+			}
 		}
 	}()
-
-	// mark pidfile
-	if *pidfileName != "" {
-		pidfile, err := os.OpenFile(*pidfileName, os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			panic(fmt.Sprintf("Cannot create PID file:%v", err))
-		}
-		defer func() {
-			pidfile.Close()
-			err := os.Remove(*pidfileName)
-			log.Debug("failed to remove pidfile: %v", err)
-		}()
-		fmt.Fprint(pidfile, os.Getpid)
-	}
-
+	// main
 	hostname, _ = os.Hostname()
 	// query slave status from MySQL instance
 	mysql := mymy.New("tcp", "", host+":"+port, user, pass)
 	defer mysql.Close()
 	mysql.Debug = false
+	log.Info("starting %v...", cmdname)
 	if *batchMode {
 		err := mysql.Connect()
 		if err != nil {
@@ -387,7 +419,6 @@ func main() {
 		}
 		processRplStatus(mysql)
 	} else {
-		log.Info("starting %v...", cmdname)
 		for {
 			if !mysql.IsConnected() {
 				log.Info("connecting to %v port %v", host, port)
@@ -415,6 +446,6 @@ func main() {
 				time.Sleep(int64(*interval) * 1e9)
 			}
 		}
-		log.Info("closing...")
 	}
+	exit(nil)
 }
