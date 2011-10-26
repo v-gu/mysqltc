@@ -349,7 +349,7 @@ func createPidfile() {
 		if err != nil {
 			panic(fmt.Sprintf("Cannot create PID file:%v", err))
 		}
-		fmt.Fprint(pidfile, os.Getpid)
+		fmt.Fprint(pidfile, os.Getpid())
 		pidfile.Close()
 		log.Debug("pidfile %v created", *pidfileName)
 	}
