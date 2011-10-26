@@ -393,7 +393,9 @@ func main() {
 		l4g.NewFormatLogWriter(sqlogFile, "[%d %t] %M"))
 	defer sqlog.Close()
 	// global error catching
-	defer exit(recover())
+	defer func() {
+		exit(recover())
+	}()
 	createPidfile()
 	// spawn os signal handler
 	go func() {
