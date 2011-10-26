@@ -38,7 +38,7 @@ var (
 	// NID
 	host string = "localhost"
 	port string = "3306"
-	user string
+	user string = "rpl"
 	pass string = "pass"
 	// logging
 	log        = make(l4g.Logger)
