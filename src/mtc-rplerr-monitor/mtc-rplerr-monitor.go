@@ -345,7 +345,8 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 
 func createPidfile() {
 	if *pidfileName != "" {
-		pidfile, err := os.OpenFile(*pidfileName, os.O_WRONLY|os.O_CREATE, 0644)
+		pidfile, err := os.OpenFile(*pidfileName,
+			os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			panic(fmt.Sprintf("Cannot create PID file:%v", err))
 		}
@@ -399,7 +400,7 @@ func main() {
 			switch sig := (<-signal.Incoming).(os.UnixSignal); sig {
 			case os.SIGINT, os.SIGHUP, os.SIGQUIT, os.SIGTERM, os.SIGKILL:
 				{
-					panic(fmt.Sprintf("%v received", sig))
+					exit(fmt.Sprintf("%v received", sig))
 				}
 			}
 		}
