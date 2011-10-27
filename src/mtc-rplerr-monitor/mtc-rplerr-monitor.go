@@ -177,7 +177,7 @@ func sendmail(content string) {
 	header += fmt.Sprintf("Error detected on MySQL replication chain "+
 		"%v:%v -> %v:%v\n", masterHost, masterPort, host, port)
 	signature += fmt.Sprintf("\n-- \nRegards,\nmtc-rplerr-monitor\n")
-	signature += fmt.Sprintf("PLESASE DO NOT REPLY DIRECTLY TO THIS EMAIL")
+	signature += fmt.Sprintf("DO NOT REPLY DIRECTLY TO THIS EMAIL")
 	log.Debug("mail:\n%v%v%v", header, content, signature)
 	stdin.Write([]byte(header))
 	stdin.Write([]byte(content))
@@ -359,12 +359,12 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 			mail += fmt.Sprintf("  - %v\n", errorStatus.msg)
 		} else {
 			if *skip {
-				mail += fmt.Sprintf("  - Note: this error was jumped and " +
-					"logged.\n")
+				mail += fmt.Sprintf("  - Note: this error was jumped and "+
+					"logged to %v on %v.\n", *sqlogFilename, hostname)
 			} else {
-				mail += fmt.Sprintf("  - WARNING: this error was logged " +
-					"but still blocking the replication, manual override " +
-					"is required.\n")
+				mail += fmt.Sprintf("  - WARNING: this error was logged to "+
+					"%v on %v, but still blocking the replication, manual "+
+					"override is required.\n", *sqlogFilename, hostname)
 			}
 		}
 	}
