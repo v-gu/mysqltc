@@ -27,7 +27,7 @@ var (
 	retryInterval *int    = fs.Int("r", 60, "retry interval, in second(s)")
 	interval      *int    = fs.Int("t", 60, "sleep interval between two checks, in second(s)")
 	skip          *bool   = fs.Bool("s", true, "whether skip error")
-	mailAddrStr   *string = fs.String("m", "vincent.gu@perfectworld.com", "mail addresses, delimited by ','")
+	mailAddrStr   *string = fs.String("m", "sysadmins@perfectworld.com", "mail addresses, delimited by ','")
 	mailcmd       *string = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
 	mailSendGap   *int    = fs.Int("g", 30, "how many retries before send out remider mail with the same topic")
 	logFileName   *string = fs.String("e", os.Stderr.Name(), "general log filename")
@@ -113,6 +113,14 @@ func parseFlags() {
 		}
 		logFile = file
 	}
+	if *sqlogFilename != "/dev/stdout" {
+		file, err := os.OpenFile(*sqlogFilename,
+			os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			panic(fmt.Sprintf("%v\n", err))
+		}
+		sqlogFile = file
+	}
 	// check mailing setting
 	_, err := os.Lstat(strings.Split(*mailcmd, " ")[0])
 	if err != nil {
@@ -195,8 +203,8 @@ func sendmail(content string) {
 	}
 }
 
-func isMySQLError(err *os.Error) bool {
-	if _, ok := (*err).(mymy.Error); ok {
+func isMySQLError(err os.Error) bool {
+	if _, ok := err.(*mymy.Error); ok {
 		return true
 	}
 	return false
@@ -207,7 +215,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	rows, res, err := mysql.Query("SHOW SLAVE STATUS")
 	if err != nil {
 		log.Warn("'SHOW SLAVE STATUS' returned with error: %v", err)
-		reconnect = !isMySQLError(&err)
+		reconnect = !isMySQLError(err)
 		return
 	}
 	if len(rows) == 0 {
@@ -223,25 +231,50 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	}
 	masterPort = strings.TrimSpace(rows[0].Str(res.Map["Master_Port"]))
 	var rplErrors []*RplError
-	// check IO error
-	errNo := strings.TrimSpace(rows[0].Str(res.Map["Last_IO_Errno"]))
-	if errNo != "0" {
-		error := strings.TrimSpace(rows[0].Str(res.Map["Last_IO_Error"]))
-		file := strings.TrimSpace(rows[0].Str(res.Map["Master_Log_File"]))
-		pos := strings.TrimSpace(rows[0].Str(res.Map["Read_Master_Log_Pos"]))
-		rplError := &RplError{IO_ERROR, errNo, error, file, pos}
-		rplErrors = append(rplErrors, rplError)
-		log.Debug("add IO error: %v", rplError)
+	// check IO_Error
+	num, ok_io := res.Map["Last_IO_Errno"]
+	if ok_io {
+		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
+			error := strings.TrimSpace(
+				rows[0].Str(res.Map["Last_IO_Error"]))
+			file := strings.TrimSpace(
+				rows[0].Str(res.Map["Master_Log_File"]))
+			pos := strings.TrimSpace(
+				rows[0].Str(res.Map["Read_Master_Log_Pos"]))
+			rplError := &RplError{IO_ERROR, errNo, error, file, pos}
+			rplErrors = append(rplErrors, rplError)
+			log.Debug("add IO error: %v", rplError)
+		}
 	}
-	// check SQL error
-	errNo = strings.TrimSpace(rows[0].Str(res.Map["Last_SQL_Errno"]))
-	if errNo != "0" {
-		error := strings.TrimSpace(rows[0].Str(res.Map["Last_SQL_Error"]))
-		file := strings.TrimSpace(rows[0].Str(res.Map["Relay_Master_Log_File"]))
-		pos := strings.TrimSpace(rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
-		rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
-		rplErrors = append(rplErrors, rplError)
-		log.Debug("add SQL error: %v", rplError)
+	// check SQL_Error
+	num, ok_sql := res.Map["Last_SQL_Errno"]
+	if ok_sql {
+		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
+			error := strings.TrimSpace(
+				rows[0].Str(res.Map["Last_SQL_Error"]))
+			file := strings.TrimSpace(
+				rows[0].Str(res.Map["Relay_Master_Log_File"]))
+			pos := strings.TrimSpace(
+				rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
+			rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
+			rplErrors = append(rplErrors, rplError)
+			log.Debug("add SQL error: %v", rplError)
+		}
+	}
+	// backward compatibility: check Last_error
+	num, ok_b := res.Map["Last_Errno"]
+	if !ok_io && !ok_sql && ok_b {
+		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
+			error := strings.TrimSpace(
+				rows[0].Str(res.Map["Last_Error"]))
+			file := strings.TrimSpace(
+				rows[0].Str(res.Map["Relay_Master_Log_File"]))
+			pos := strings.TrimSpace(
+				rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
+			rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
+			rplErrors = append(rplErrors, rplError)
+			log.Debug("add error: %v", rplError)
+		}
 	}
 	// check repetition
 	for _, rplError := range rplErrors {
@@ -265,28 +298,26 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	for errorType, errorStatus := range errorStatuses {
 		rplError := errorStatus.rplError
 		if errorStatus.sid != gsid {
-			log.Debug("do not process %v [%v %v] because its obsoleted",
-				errorType, rplError.logFile, rplError.pos)
+			log.Debug("do not process [%v %v] %v because its obsoleted",
+				rplError.logFile, rplError.pos, errorType)
 			continue
 		}
-		log.Debug("Processing %v [%v %v]",
-			errorType, rplError.logFile, rplError.pos)
+		log.Debug("Processing [%v %v] %v",
+			rplError.logFile, rplError.pos, errorType)
 		if errorStatus.repeatCount == 0 {
-			log.Info("found rpl error: #%v@[%v %v]",
-				rplError.errno, rplError.logFile, rplError.pos)
+			log.Info("found rpl error: [%v %v] %v",
+				rplError.logFile, rplError.pos, rplError.errno)
 		}
 		if *skip {
 			if errorType == SQL_ERROR {
-				log.Info("trying to skip rpl error: #%v@[%v %v]",
-					rplError.errno, rplError.logFile, rplError.pos)
+				log.Info("trying to skip rpl error...")
 				_, _, err = mysql.Query(
 					"SET GLOBAL SQL_SLAVE_SKIP_COUNTER = 1")
 				if err != nil {
-					msg := fmt.Sprintf("trying to skip error but: %v, will "+
-						"retry later.", err)
+					msg := fmt.Sprintf("trying to skip error but: %v", err)
 					log.Warn(msg)
 					errorStatus.msg = msg
-					reconnect = reconnect || !isMySQLError(&err)
+					reconnect = reconnect || !isMySQLError(err)
 					continue
 				}
 				_, _, err = mysql.Query("START SLAVE SQL_THREAD")
@@ -295,13 +326,13 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 						"but: %v, will retry later", err)
 					log.Warn(msg)
 					errorStatus.msg = msg
-					reconnect = reconnect || !isMySQLError(&err)
+					reconnect = reconnect || !isMySQLError(err)
 					continue
 				}
 			}
 		}
 		if errorType == IO_ERROR {
-			msg := fmt.Sprintf("IO_ERROR cannot only be resolved manually or " +
+			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or " +
 				"by itself.\n")
 			log.Warn(msg)
 			errorStatus.msg = msg
