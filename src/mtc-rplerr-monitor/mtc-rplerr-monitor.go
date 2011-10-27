@@ -29,7 +29,7 @@ var (
 	skip          *bool   = fs.Bool("s", true, "whether skip error")
 	mailAddrStr   *string = fs.String("m", "sysadmins@perfectworld.com", "mail addresses, delimited by ','")
 	mailcmd       *string = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
-	mailSendGap   *int    = fs.Int("g", 30, "how many retries before send out remider mail with the same topic")
+	mailSendGap   *int    = fs.Int("g", 480, "how many retries before send out remider mail with the same topic")
 	logFilename   *string = fs.String("e", os.Stderr.Name(), "general log filename")
 	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
@@ -136,7 +136,7 @@ type RplError struct {
 	pos     string
 }
 
-func (err *RplError) string() string {
+func (err *RplError) String() string {
 	return fmt.Sprintf("[%v %v] #%v: %v",
 		err.logFile, err.pos, err.errno, err.error)
 }
@@ -307,6 +307,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		if errorStatus.repeatCount == 0 {
 			log.Info("found rpl error: [%v %v] ErrNo:#%v",
 				rplError.logFile, rplError.pos, rplError.errno)
+			sqlog.Info(rplError.String())
 		}
 		if *skip {
 			if errorType == SQL_ERROR {
@@ -332,7 +333,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 			}
 		}
 		if errorType == IO_ERROR {
-			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or " +
+			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or "+
 				"by itself. This error was logged to %v on %v.",
 				*sqlogFilename, hostname)
 			log.Warn(msg)
@@ -355,7 +356,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		log.Debug("formatting mail for %v [%v %v]",
 			errorType, rplError.logFile, rplError.pos)
 		mail += fmt.Sprintf("\n%v:\n", errorType)
-		mail += fmt.Sprintf("  - WARNING: %v\n", rplError.string())
+		mail += fmt.Sprintf("  - WARNING: %v\n", rplError.String())
 		if errorStatus.msg != "" {
 			mail += fmt.Sprintf("  - %v\n", errorStatus.msg)
 		} else {
