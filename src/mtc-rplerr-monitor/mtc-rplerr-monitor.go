@@ -30,7 +30,7 @@ var (
 	mailAddrStr   *string = fs.String("m", "sysadmins@perfectworld.com", "mail addresses, delimited by ','")
 	mailcmd       *string = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
 	mailSendGap   *int    = fs.Int("g", 30, "how many retries before send out remider mail with the same topic")
-	logFileName   *string = fs.String("e", os.Stderr.Name(), "general log filename")
+	logFilename   *string = fs.String("e", os.Stderr.Name(), "general log filename")
 	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
 	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
@@ -105,8 +105,8 @@ func parseFlags() {
 		}
 	}
 	// check log files
-	if *logFileName != "/dev/stderr" {
-		file, err := os.OpenFile(*logFileName,
+	if *logFilename != "/dev/stderr" {
+		file, err := os.OpenFile(*logFilename,
 			os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			panic(fmt.Sprintf("%v\n", err))
@@ -305,7 +305,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		log.Debug("Processing [%v %v] %v",
 			rplError.logFile, rplError.pos, errorType)
 		if errorStatus.repeatCount == 0 {
-			log.Info("found rpl error: [%v %v] %v",
+			log.Info("found rpl error: [%v %v] ErrNo:#%v",
 				rplError.logFile, rplError.pos, rplError.errno)
 		}
 		if *skip {
@@ -333,8 +333,8 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		}
 		if errorType == IO_ERROR {
 			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or " +
-				"by itself. This error was logged to %v on %v.\n",
-				sqlogFile.Name(), hostname)
+				"by itself. This error was logged to %v on %v.",
+				*sqlogFilename, hostname)
 			log.Warn(msg)
 			errorStatus.msg = msg
 			continue
@@ -361,11 +361,11 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		} else {
 			if *skip {
 				mail += fmt.Sprintf("  - Note: this error was jumped and "+
-					"logged to %v on %v.\n", sqlogFile.Name(), hostname)
+					"logged to %v on %v.\n", *sqlogFilename, hostname)
 			} else {
 				mail += fmt.Sprintf("  - WARNING: this error was logged to "+
 					"%v on %v, but still blocking the replication, manual "+
-					"override is required.\n", sqlogFile.Name(), hostname)
+					"override is required.\n", *sqlogFilename, hostname)
 			}
 		}
 	}
@@ -418,10 +418,10 @@ func main() {
 	// parse command line flags
 	parseFlags()
 	// init logger
-	log.AddFilter("stderr", logLevel,
+	log.AddFilter(*logFilename, logLevel,
 		l4g.NewFormatLogWriter(logFile, "[%d %t] [%L] %M"))
 	defer log.Close()
-	sqlog.AddFilter("stdout", sqlogLevel,
+	sqlog.AddFilter(*sqlogFilename, sqlogLevel,
 		l4g.NewFormatLogWriter(sqlogFile, "[%d %t] %M"))
 	defer sqlog.Close()
 	// global error catching
