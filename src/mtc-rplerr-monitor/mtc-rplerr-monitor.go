@@ -276,7 +276,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 			log.Debug("add error: %v", rplError)
 		}
 	}
-	// check repetition
+	// check freshness
 	for _, rplError := range rplErrors {
 		if prevErr := errorStatuses[rplError.errType]; prevErr == nil {
 			errorStatus := &ErrorStatus{gsid, rplError, 0, ""}
@@ -305,9 +305,20 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		log.Debug("Processing [%v %v] %v",
 			rplError.logFile, rplError.pos, errorType)
 		if errorStatus.repeatCount == 0 {
-			log.Info("found rpl error: [%v %v] ErrNo:#%v",
-				rplError.logFile, rplError.pos, rplError.errno)
 			sqlog.Info(rplError.String())
+			if errorType == SQL_ERROR {
+				log.Info("found rpl error: [%v %v] ErrNo:#%v",
+					rplError.logFile, rplError.pos, rplError.errno)
+			} else if errorType == IO_ERROR {
+				msg := fmt.Sprintf("IO_ERROR can only be resolved manually or "+
+					"by itself. This error was logged to %v on %v.",
+					*sqlogFilename, hostname)
+				log.Warn(msg)
+				errorStatus.msg = msg
+				continue
+			} else {
+				continue
+			}
 		}
 		if *skip {
 			if errorType == SQL_ERROR {
@@ -331,14 +342,6 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 					continue
 				}
 			}
-		}
-		if errorType == IO_ERROR {
-			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or "+
-				"by itself. This error was logged to %v on %v.",
-				*sqlogFilename, hostname)
-			log.Warn(msg)
-			errorStatus.msg = msg
-			continue
 		}
 	}
 	// format mail contents
