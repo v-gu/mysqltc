@@ -333,7 +333,8 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		}
 		if errorType == IO_ERROR {
 			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or " +
-				"by itself.\n")
+				"by itself. This error was logged to %v on %v.\n",
+				*sqlogFilename, hostname)
 			log.Warn(msg)
 			errorStatus.msg = msg
 			continue
