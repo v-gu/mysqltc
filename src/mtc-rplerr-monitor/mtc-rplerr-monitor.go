@@ -334,7 +334,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		if errorType == IO_ERROR {
 			msg := fmt.Sprintf("IO_ERROR can only be resolved manually or " +
 				"by itself. This error was logged to %v on %v.\n",
-				*sqlogFilename, hostname)
+				sqlogFile.Name(), hostname)
 			log.Warn(msg)
 			errorStatus.msg = msg
 			continue
@@ -361,11 +361,11 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		} else {
 			if *skip {
 				mail += fmt.Sprintf("  - Note: this error was jumped and "+
-					"logged to %v on %v.\n", *sqlogFilename, hostname)
+					"logged to %v on %v.\n", sqlogFile.Name(), hostname)
 			} else {
 				mail += fmt.Sprintf("  - WARNING: this error was logged to "+
 					"%v on %v, but still blocking the replication, manual "+
-					"override is required.\n", *sqlogFilename, hostname)
+					"override is required.\n", sqlogFile.Name(), hostname)
 			}
 		}
 	}
