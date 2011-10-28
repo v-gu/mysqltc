@@ -291,7 +291,6 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 				prevErr.repeatCount += 1
 			}
 			prevErr.sid = gsid // set sid up-to-date
-			prevErr.msg = ""
 		}
 	}
 	// deal with the situation
