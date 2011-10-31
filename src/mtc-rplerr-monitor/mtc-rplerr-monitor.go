@@ -11,7 +11,7 @@ import (
 	"exec"
 
 	l4g "log4go.googlecode.com/hg"
-	mysql "github.com/ziutek/mymysql"
+	mysql "github.com/ziutek/mymysql/v0.3.7"
 )
 
 const (
@@ -210,7 +210,7 @@ func isMySQLError(err os.Error) bool {
 	return false
 }
 
-func processRplStatus(db *mysql.Conn) (slave bool, reconnect bool) {
+func processRplStatus(db *mysql.MySQL) (slave bool, reconnect bool) {
 	slave, reconnect = true, false
 	rows, res, err := db.Query("SHOW SLAVE STATUS")
 	if err != nil {
