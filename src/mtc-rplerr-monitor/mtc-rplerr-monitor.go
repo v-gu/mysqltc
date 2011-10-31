@@ -11,7 +11,7 @@ import (
 	"exec"
 
 	l4g "log4go.googlecode.com/hg"
-	mymy "github.com/ziutek/mymysql"
+	mysql "github.com/ziutek/mymysql"
 )
 
 const (
@@ -204,15 +204,15 @@ func sendmail(content string) {
 }
 
 func isMySQLError(err os.Error) bool {
-	if _, ok := err.(*mymy.Error); ok {
+	if _, ok := err.(*mysql.Error); ok {
 		return true
 	}
 	return false
 }
 
-func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
+func processRplStatus(db *mysql.Conn) (slave bool, reconnect bool) {
 	slave, reconnect = true, false
-	rows, res, err := mysql.Query("SHOW SLAVE STATUS")
+	rows, res, err := db.Query("SHOW SLAVE STATUS")
 	if err != nil {
 		log.Warn("'SHOW SLAVE STATUS' returned with error: %v", err)
 		reconnect = !isMySQLError(err)
@@ -225,22 +225,19 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	}
 	gsid += 1
 	log.Debug("current gsid: %v", gsid)
-	masterHost = strings.TrimSpace(rows[0].Str(res.Map["Master_Host"]))
+	masterHost = rows[0].Str(res.Map["Master_Host"])
 	if masterHost == "127.0.0.1" {
 		masterHost = host
 	}
-	masterPort = strings.TrimSpace(rows[0].Str(res.Map["Master_Port"]))
+	masterPort = rows[0].Str(res.Map["Master_Port"])
 	var rplErrors []*RplError
 	// check IO_Error
 	num, ok_io := res.Map["Last_IO_Errno"]
 	if ok_io {
-		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
-			error := strings.TrimSpace(
-				rows[0].Str(res.Map["Last_IO_Error"]))
-			file := strings.TrimSpace(
-				rows[0].Str(res.Map["Master_Log_File"]))
-			pos := strings.TrimSpace(
-				rows[0].Str(res.Map["Read_Master_Log_Pos"]))
+		if errNo := rows[0].Str(num); errNo != "0" {
+			error := rows[0].Str(res.Map["Last_IO_Error"])
+			file := rows[0].Str(res.Map["Master_Log_File"])
+			pos := rows[0].Str(res.Map["Read_Master_Log_Pos"])
 			rplError := &RplError{IO_ERROR, errNo, error, file, pos}
 			rplErrors = append(rplErrors, rplError)
 			log.Debug("add IO error: %v", rplError)
@@ -249,13 +246,10 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	// check SQL_Error
 	num, ok_sql := res.Map["Last_SQL_Errno"]
 	if ok_sql {
-		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
-			error := strings.TrimSpace(
-				rows[0].Str(res.Map["Last_SQL_Error"]))
-			file := strings.TrimSpace(
-				rows[0].Str(res.Map["Relay_Master_Log_File"]))
-			pos := strings.TrimSpace(
-				rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
+		if errNo := rows[0].Str(num); errNo != "0" {
+			error := rows[0].Str(res.Map["Last_SQL_Error"])
+			file := rows[0].Str(res.Map["Relay_Master_Log_File"])
+			pos := rows[0].Str(res.Map["Exec_Master_Log_Pos"])
 			rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
 			rplErrors = append(rplErrors, rplError)
 			log.Debug("add SQL error: %v", rplError)
@@ -264,13 +258,10 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 	// backward compatibility: check Last_error
 	num, ok_b := res.Map["Last_Errno"]
 	if !ok_io && !ok_sql && ok_b {
-		if errNo := strings.TrimSpace(rows[0].Str(num)); errNo != "0" {
-			error := strings.TrimSpace(
-				rows[0].Str(res.Map["Last_Error"]))
-			file := strings.TrimSpace(
-				rows[0].Str(res.Map["Relay_Master_Log_File"]))
-			pos := strings.TrimSpace(
-				rows[0].Str(res.Map["Exec_Master_Log_Pos"]))
+		if errNo := rows[0].Str(num); errNo != "0" {
+			error := rows[0].Str(res.Map["Last_Error"])
+			file := rows[0].Str(res.Map["Relay_Master_Log_File"])
+			pos := rows[0].Str(res.Map["Exec_Master_Log_Pos"])
 			rplError := &RplError{SQL_ERROR, errNo, error, file, pos}
 			rplErrors = append(rplErrors, rplError)
 			log.Debug("add error: %v", rplError)
@@ -321,7 +312,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 		if *skip {
 			if errorType == SQL_ERROR {
 				log.Info("trying to skip rpl error...")
-				_, _, err = mysql.Query(
+				_, _, err = db.Query(
 					"SET GLOBAL SQL_SLAVE_SKIP_COUNTER = 1")
 				if err != nil {
 					msg := fmt.Sprintf("trying to skip error but: %v", err)
@@ -330,7 +321,7 @@ func processRplStatus(mysql *mymy.MySQL) (slave bool, reconnect bool) {
 					reconnect = reconnect || !isMySQLError(err)
 					continue
 				}
-				_, _, err = mysql.Query("START SLAVE SQL_THREAD")
+				_, _, err = db.Query("START SLAVE SQL_THREAD")
 				if err != nil {
 					msg := fmt.Sprintf("trying to restart slave sql_thread "+
 						"but: %v, will retry later", err)
@@ -445,22 +436,22 @@ func main() {
 	// main
 	hostname, _ = os.Hostname()
 	// query slave status from MySQL instance
-	mysql := mymy.New("tcp", "", host+":"+port, user, pass)
-	defer mysql.Close()
-	mysql.Debug = false
+	db := mysql.New("tcp", "", host+":"+port, user, pass)
+	defer db.Close()
+	db.Debug = false
 	log.Info("starting %v...", cmdname)
 	if *batchMode {
-		err := mysql.Connect()
+		err := db.Connect()
 		if err != nil {
 			panic(fmt.Sprintf("can't connect to %v on port %v: %v",
 				host, port, err))
 		}
-		processRplStatus(mysql)
+		processRplStatus(db)
 	} else {
 		for {
-			if !mysql.IsConnected() {
+			if !db.IsConnected() {
 				log.Info("connecting to %v port %v", host, port)
-				err := mysql.Connect()
+				err := db.Connect()
 				if err != nil {
 					log.Warn("can't connect to %v on port %v: %v",
 						host, port, err)
@@ -471,14 +462,14 @@ func main() {
 				}
 				log.Info("connection established. start monitoring.")
 			}
-			slave, reconnect := processRplStatus(mysql)
+			slave, reconnect := processRplStatus(db)
 			if !slave {
 				// target server is not eligible to be monitored
 				break
 			}
 			if reconnect {
 				log.Warn("retry in %v seconds...", *retryInterval)
-				mysql.Close()
+				db.Close()
 				time.Sleep(int64(*retryInterval) * 1e9)
 			} else {
 				time.Sleep(int64(*interval) * 1e9)
