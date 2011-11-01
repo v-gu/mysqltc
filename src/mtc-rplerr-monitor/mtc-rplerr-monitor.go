@@ -7,8 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"strconv"
 	"time"
 	"exec"
+
+	mtclib "lib"
 
 	l4g "log4go.googlecode.com/hg"
 	mysql "github.com/ziutek/mymysql/v0.3.7"
@@ -35,11 +38,8 @@ var (
 	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
 	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
 	pidfileName   *string = fs.String("pidfile", "", "file existed only when program was running, with PID filled in")
-	// NID
-	host string = "localhost"
-	port string = "3306"
-	user string = "rpl"
-	pass string = "pass"
+	// target MySQL server
+	server *mtclib.MysqlServer
 	// logging
 	log        = make(l4g.Logger)
 	logLevel   = l4g.INFO
@@ -89,21 +89,7 @@ func parseFlags() {
 		panic("no NID specified")
 	}
 	// check NID
-	for _, pair := range strings.Split(fs.Arg(0), ",") {
-		kv := strings.Split(pair, "=")
-		switch kv[0] {
-		case "h":
-			host = kv[1]
-		case "P":
-			port = kv[1]
-		case "u":
-			user = kv[1]
-		case "p":
-			pass = kv[1]
-		default:
-			panic(fmt.Sprintf("mulformed NID: %v=%v", kv[0], kv[1]))
-		}
-	}
+	server = mtclib.ParseNid(fs.Arg(0))
 	// check log files
 	if *logFilename != "/dev/stderr" {
 		file, err := os.OpenFile(*logFilename,
@@ -170,12 +156,12 @@ func sendmail(content string) {
 	var header, signature string
 	header += fmt.Sprintf("To: %v\n", *mailAddrStr)
 	header += fmt.Sprintf("Subject: MySQL replication error on [%v:%v]\n",
-		host, port)
+		server.Host, server.Port)
 	header += fmt.Sprintf("From: /%v/mtc-rplerr-monitor\n", hostname)
 	header += fmt.Sprintf("Date: %v\n", time.LocalTime())
 	header += fmt.Sprintf("\n")
 	header += fmt.Sprintf("Error detected on MySQL replication chain "+
-		"%v:%v -> %v:%v\n", masterHost, masterPort, host, port)
+		"%v:%v -> %v:%v\n", masterHost, masterPort, server.Host, server.Port)
 	signature += fmt.Sprintf("\n-- \nRegards,\nmtc-rplerr-monitor\n")
 	signature += fmt.Sprintf("DO NOT REPLY DIRECTLY TO THIS EMAIL")
 	log.Debug("mail:\n%v%v%v", header, content, signature)
@@ -227,7 +213,7 @@ func processRplStatus(db *mysql.MySQL) (slave bool, reconnect bool) {
 	log.Debug("current gsid: %v", gsid)
 	masterHost = rows[0].Str(res.Map["Master_Host"])
 	if masterHost == "127.0.0.1" {
-		masterHost = host
+		masterHost = server.Host
 	}
 	masterPort = rows[0].Str(res.Map["Master_Port"])
 	var rplErrors []*RplError
@@ -436,7 +422,8 @@ func main() {
 	// main
 	hostname, _ = os.Hostname()
 	// query slave status from MySQL instance
-	db := mysql.New("tcp", "", host+":"+port, user, pass)
+	db := mysql.New("tcp", "",
+		server.Host+":"+strconv.Itoa(server.Port), server.User, server.Pass)
 	defer db.Close()
 	db.Debug = false
 	log.Info("starting %v...", cmdname)
@@ -444,17 +431,17 @@ func main() {
 		err := db.Connect()
 		if err != nil {
 			panic(fmt.Sprintf("can't connect to %v on port %v: %v",
-				host, port, err))
+				server.Host, server.Port, err))
 		}
 		processRplStatus(db)
 	} else {
 		for {
 			if !db.IsConnected() {
-				log.Info("connecting to %v port %v", host, port)
+				log.Info("connecting to %v port %v", server.Host, server.Port)
 				err := db.Connect()
 				if err != nil {
 					log.Warn("can't connect to %v on port %v: %v",
-						host, port, err)
+						server.Host, server.Port, err)
 					log.Warn("retry in %v seconds...", *retryInterval)
 					// sleep for timeInterval minute(s)
 					time.Sleep(int64(*retryInterval) * 1e9)
