@@ -11,7 +11,7 @@ import (
 	"time"
 	"exec"
 
-	mtclib "lib"
+	"mtclib"
 
 	l4g "log4go.googlecode.com/hg"
 	mysql "github.com/ziutek/mymysql/v0.3.7"
