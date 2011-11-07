@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# default applications to install
+# default applications to test
 APPS="\
 mtc-cordump \
 mtc-rplerr-monitor\
@@ -24,26 +24,32 @@ while getopts "a:v" opt; do
     shift
 done
 
-# clean up src folder
-eval "$(dirname $0)/clean.sh" >/dev/null 2>&1
-
-# build
+# test
+SRCDIR="${PWD}/$(dirname $0)"
 if [ "${S_APPS}" != "" ];then
     for i in $S_APPS;
     do
         if [ "$VERBOSE" = "true" ]; then
-            goinstall -v "$i"
+            cd "${SRCDIR}/${i}"
+            gotest -x -v "$@"
+            cd ${SRCDIR}
         else
-            goinstall "$i"
+            cd "${SRCDIR}/${i}"
+            gotest "$@"
+            cd ${SRCDIR}
         fi
     done
 else
     for i in $APPS;
     do
         if [ "$VERBOSE" = "true" ]; then
-            goinstall -v "$i"
+            cd "${SRCDIR}/${i}"
+            gotest -x -v "$@"
+            cd ${SRCDIR}
         else
-            goinstall "$i"
+            cd "${SRCDIR}/${i}"
+            gotest "$@"
+            cd ${SRCDIR}
         fi
     done
 fi

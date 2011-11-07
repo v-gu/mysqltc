@@ -24,9 +24,11 @@ import (
 	"fmt"
 	// "strings"
 	// "strconv"
+	
+	"mtclib"
 
 	l4g "log4go.googlecode.com/hg"
-	// mymysql "github.com/ziutek/mymysql"
+	// mysql "github.com/ziutek/mymysql/v0.3.7"
 )
 
 var (
@@ -49,10 +51,7 @@ var (
 )
 
 type Node struct {
-	host       string
-	port       int
-	user       string
-	pass       string
+	server     mtclib.MySQLServer
 	masterHost string
 	masterFile string
 	masterPos  int64

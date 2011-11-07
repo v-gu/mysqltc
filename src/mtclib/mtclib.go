@@ -6,15 +6,15 @@ import (
 	"strconv"
 )
 
-type MysqlServer struct {
+type MySQLServer struct {
 	Host string
 	Port int
 	User string
 	Pass string
 }
 
-func ParseNid(str string) *MysqlServer {
-	server := &MysqlServer{
+func ParseNid(str string) *MySQLServer {
+	server := &MySQLServer{
 		Host: "localhost",
 		Port: 3306,
 		User: "rpl",

@@ -39,7 +39,7 @@ var (
 	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
 	pidfileName   *string = fs.String("pidfile", "", "file existed only when program was running, with PID filled in")
 	// target MySQL server
-	server *mtclib.MysqlServer
+	server *mtclib.MySQLServer
 	// logging
 	log        = make(l4g.Logger)
 	logLevel   = l4g.INFO
