@@ -3,7 +3,6 @@
 # select which applications to install
 APPS="mtc-cordump mtc-rplerr-monitor"
 
-
 . "$(dirname $0)/env.sh"
 
 # parse opts
