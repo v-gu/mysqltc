@@ -22,9 +22,7 @@ func ParseNid(nidStr string) *MySQLServer {
 
 	server := &MySQLServer{
 		Host: "localhost",
-		Port: 3306,
-		User: "rpl",
-		Pass: "pass"}
+		Port: 3306}
 	for _, token := range strings.Split(nidStr, ",") {
 		kv := strings.Split(token, "=")
 		if len(kv) != 2 {

@@ -22,24 +22,33 @@ const (
 	SQL_ERROR = "SQL_ERROR"
 )
 
+// flags
 var (
-	// general
-	cmdname string        = os.Args[0]
-	fs      *flag.FlagSet = flag.NewFlagSet(cmdname, flag.ExitOnError)
-	//flags
-	retryInterval *int    = fs.Int("r", 60, "retry interval, in second(s)")
-	interval      *int    = fs.Int("t", 60, "sleep interval between two checks, in second(s)")
-	skip          *bool   = fs.Bool("s", true, "whether skip error")
-	mailAddrStr   *string = fs.String("m", "sysadmins@perfectworld.com", "mail addresses, delimited by ','")
-	mailcmd       *string = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
-	mailSendGap   *int    = fs.Int("g", 480, "how many retries before send out remider mail with the same topic")
-	logFilename   *string = fs.String("e", os.Stderr.Name(), "general log filename")
-	sqlogFilename *string = fs.String("f", os.Stdout.Name(), "sql error log filename")
-	logLevelStr   *string = fs.String("l", "info", "log level filter(debug|info|warn|error)")
-	batchMode     *bool   = fs.Bool("b", false, "execute once, ignore any intervals")
-	pidfileName   *string = fs.String("pidfile", "", "file existed only when program was running, with PID filled in")
-	// target MySQL server
-	server *mtclib.MySQLServer
+	fs            = flag.NewFlagSet(cmdname, flag.ExitOnError)
+	retryInterval = fs.Int("r", 60, "retry interval, in second(s)")
+	interval      = fs.Int("t", 60, "sleep interval between two checks, in seconds")
+	skip          = fs.Bool("s", true, "whether skip error")
+	mailAddrStr   = fs.String("m", "sysadmins@perfectworld.com",
+		"mail addresses, delimited by ','")
+	mailcmd       = fs.String("mail", "/usr/bin/sendmail -t", "path to MTA")
+	mailSendGap   = fs.Int("g", 480, "how many retries before send out remider mail with the same topic")
+	logFilename   = fs.String("e", os.Stderr.Name(), "general log filename")
+	sqlogFilename = fs.String("f", os.Stdout.Name(), "sql error log filename")
+	logLevelStr   = fs.String("l", "info", "log level filter(debug|info|warn|error)")
+	batchMode     = fs.Bool("b", false, "execute once, ignore any intervals")
+	pidfileName   = fs.String("pidfile", "",
+		"file existed only when program was running, with PID filled in")
+)
+
+var (
+	cmdname       = os.Args[0]
+	hostname, _   = os.Hostname()
+	server        *mtclib.MySQLServer
+	masterHost    string
+	masterPort    string
+	gsid          uint64 // global sequence id
+	errorCount    int
+	errorStatuses map[string]*ErrorStatus = make(map[string]*ErrorStatus, 2)
 	// logging
 	log        = make(l4g.Logger)
 	logLevel   = l4g.INFO
@@ -47,29 +56,22 @@ var (
 	sqlog      = make(l4g.Logger)
 	sqlogLevel = l4g.INFO
 	sqlogFile  = os.Stdout
-	// logic
-	hostname      string
-	errorCount    int
-	masterHost    string
-	masterPort    string
-	gsid          uint64                  // global sequence id
-	errorStatuses map[string]*ErrorStatus = make(map[string]*ErrorStatus, 2)
 )
 
 func parseFlags() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(os.Stderr, "parseFlags()->%v\n", err)
 			os.Exit(1)
 		}
 	}()
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "    %v [OPTIONS] NID\n", cmdname)
-		fmt.Fprintf(os.Stderr, "\n\nNID:\n")
-		fmt.Fprintf(os.Stderr, "    \"h=?,P=?,u=?,p=?\"\n")
-		fmt.Fprintf(os.Stderr, "\n\nOPTIONS:\n")
+		fmt.Fprintf(os.Stderr, "  %v [OPTIONS] NID\n", cmdname)
+		fmt.Fprintf(os.Stderr, "\nNID:\n")
+		fmt.Fprintf(os.Stderr, "  \"h=?,P=?,u=?,p=?\"\n")
+		fmt.Fprintf(os.Stderr, "\nOPTIONS:\n")
 		fs.PrintDefaults()
 	}
 	fs.Parse(os.Args[1:])
@@ -90,27 +92,27 @@ func parseFlags() {
 	}
 	// check NID
 	server = mtclib.ParseNid(fs.Arg(0))
-	// check log files
-	if *logFilename != "/dev/stderr" {
+	// prepare output files
+	if *logFilename != os.Stderr.Name() {
 		file, err := os.OpenFile(*logFilename,
 			os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
-			panic(fmt.Sprintf("%v\n", err))
+			panic(err)
 		}
 		logFile = file
 	}
-	if *sqlogFilename != "/dev/stdout" {
+	if *sqlogFilename != os.Stdout.Name() {
 		file, err := os.OpenFile(*sqlogFilename,
 			os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
-			panic(fmt.Sprintf("%v\n", err))
+			panic(err)
 		}
 		sqlogFile = file
 	}
 	// check mailing setting
 	_, err := os.Lstat(strings.Split(*mailcmd, " ")[0])
 	if err != nil {
-		panic(fmt.Sprint(err))
+		panic(err)
 	}
 }
 
@@ -419,8 +421,7 @@ func main() {
 			}
 		}
 	}()
-	// main
-	hostname, _ = os.Hostname()
+
 	// query slave status from MySQL instance
 	db := mysql.New("tcp", "",
 		server.Host+":"+strconv.Itoa(server.Port), server.User, server.Pass)
