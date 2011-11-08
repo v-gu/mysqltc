@@ -7,7 +7,7 @@ mtc-rplerr-monitor\
 "
 S_APPS=""
 
-. "$(dirname $0)/env.sh"
+. "$(dirname $0)/env.bash"
 
 # parse opts
 while getopts "a:v" opt; do
