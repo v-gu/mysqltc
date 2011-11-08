@@ -13,14 +13,23 @@ type MySQLServer struct {
 	Pass string
 }
 
-func ParseNid(str string) *MySQLServer {
+func ParseNid(nidStr string) *MySQLServer {
+	defer func() {
+		if err := recover(); err != nil {
+			panic(fmt.Sprintf("ParseNid('%v')->%v", nidStr, err))
+		}
+	}()
+
 	server := &MySQLServer{
 		Host: "localhost",
 		Port: 3306,
 		User: "rpl",
 		Pass: "pass"}
-	for _, pair := range strings.Split(str, ",") {
-		kv := strings.Split(pair, "=")
+	for _, token := range strings.Split(nidStr, ",") {
+		kv := strings.Split(token, "=")
+		if len(kv) != 2 {
+			panic(fmt.Sprintf("mulformed NID: '%v'", token))
+		}
 		switch kv[0] {
 		case "h":
 			server.Host = kv[1]
