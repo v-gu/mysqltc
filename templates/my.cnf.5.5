@@ -59,11 +59,11 @@ socket                              = /logs/mysql0/mysqld.sock
 #skip-name-resolve
 pid-file                            = /logs/mysql0/mysqld.pid
 user                                = mysql
-large-pages                         = 0
+large-pages                         = FALSE
 basedir                             = /usr/local/mysql/
 datadir                             = /data/mysql0/
 tmpdir                              = /tmp/
-local_infile                        = 1
+local_infile                        = TRUE
 character-set-filesystem            = utf8
 character-set-server                = utf8
 collation-server                    = utf8_general_ci
@@ -74,14 +74,14 @@ max_user_connections                = 2048
 
 # general logging
 log-error                           = /logs/mysql0/mysqld.err
-log-warnings                        = 1
+log-warnings                        = 1  #level
 log-output                          = NONE  #TABLE,FILE,NONE
-general-log                         = 0
+general-log                         = OFF
 general_log_file                    = general.log
-slow-query-log                      = 0
+slow-query-log                      = OFF
 slow_query_log_file                 = slow.log
-log-queries-not-using-indexes       = 0
-log-slow-admin-statements           = 0
+log-queries-not-using-indexes       = FALSE
+log-slow-admin-statements           = FALSE
 
 # privilege system
 #skip-grant-tables
@@ -111,50 +111,54 @@ replicate-ignore-db                 = mysql.%
 
 # replication:slave
 #init_slave                          = ''
-log-slave-updates                   = 0
-replicate-same-server-id            = 0
+log-slave-updates                   = FALSE
+replicate-same-server-id            = FALSE
 master-info-file                    = /logs/mysql0/master.info
 relay-log-info-file                 = /logs/mysql0/relay-log.info
 relay-log                           = /logs/mysql0/relay-bin
 relay-log-index                     = /logs/mysql0/relay-bin.index
-relay_log_recovery                  = 0
+relay_log_recovery                  = FALSE
 slave-exec-mode                     = STRICT
-slave_compressed_protocol           = 0
+slave_compressed_protocol           = OFF
 slave-load-tmpdir                   = /logs/tmp/
 slave-net-timeout                   = 3600
-skip-slave-start                    = 0
-#slave-skip-errors                   = 
+skip-slave-start                    = FALSE
+slave-skip-errors                   = 
 slave_type_conversions              = 
-sync_master_info                    = 0
-sync_relay_log                      = 0
-sync_relay_log_info                 = 0
+sync_master_info                    = 0  # events counter
+sync_relay_log                      = 0  # events counter
+sync_relay_log_info                 = 0  # events counter
 report-host                         = 
 report-port                         = 3306
 
 # general optimization
 query_cache_size                    = 0
 query_cache_limit                   = 4M
-query_cache_type                    = 2  #1,0,2
+query_cache_type                    = DEMAND # OFF,ON,DEMAND
 table_open_cache                    = 32KB
 sort_buffer_size                    = 8MB
 net_buffer_length                   = 64KB
 read_buffer_size                    = 8MB
 read_rnd_buffer_size                = 4MB
+thread_cache_size                   = 300
 
 # MyISAM
-key_buffer_size                     = 64MB
+key_buffer_size                     = 2GB
+myisam-block-size                   = 4096
 myisam_sort_buffer_size             = 8MB
 
 # InnoDB
-innodb_buffer_pool_size             = 16GB
+innodb_buffer_pool_size             = 26GB
 innodb_additional_mem_pool_size     = 128MB
 innodb_data_file_path               = ibdata1:1G:autoextend
-innodb_file_per_table               = 1
-innodb_flush_log_at_trx_commit      = 2  #1,0,2
+innodb_file_format                  = Barracuda
+innodb_file_format_check            = ON
+innodb_file_per_table               = ON
+innodb_flush_log_at_trx_commit      = 2  # 0=write 1/s, 1=normal, 2=flush 1/s
 innodb_log_buffer_size              = 16MB
 innodb_log_files_in_group           = 2
 innodb_log_file_size                = 64MB
-innodb_thread_concurrency           = 0
+innodb_thread_concurrency           = 0  # (2*CPU+DISKS), or 0 for infinite
 innodb_flush_method                 = O_DIRECT
 innodb_lock_wait_timeout            = 600 # defaults to 50
 innodb_data_home_dir                = /data/mysql0/
