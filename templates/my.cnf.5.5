@@ -1,6 +1,6 @@
 [client]
 port                                = 3306
-socket                              = /logs/mysql0/mysqld.sock
+socket                              = /data/logs/mysql0/mysqld.sock
 
 
 [mysql]
@@ -55,9 +55,9 @@ core-file
 
 # generic configuration options
 port                                = 3306
-socket                              = /logs/mysql0/mysqld.sock
+socket                              = /data/logs/mysql0/mysqld.sock
 #skip-name-resolve
-pid-file                            = /logs/mysql0/mysqld.pid
+pid-file                            = /data/logs/mysql0/mysqld.pid
 user                                = mysql
 large-pages                         = FALSE
 basedir                             = /usr/local/mysql/
@@ -73,7 +73,7 @@ max_connections                     = 2064
 max_user_connections                = 2048
 
 # general logging
-log-error                           = /logs/mysql0/mysqld.err
+log-error                           = /data/logs/mysql0/mysqld.err
 log-warnings                        = 1  #level
 log-output                          = NONE  #TABLE,FILE,NONE
 general-log                         = OFF
@@ -87,17 +87,17 @@ log-slow-admin-statements           = FALSE
 #skip-grant-tables
 
 # binlog
-log-bin                             = /logs/mysql0/mysql-bin
-log-bin-index                       = /logs/mysql0/mysql-bin.index
+log-bin                             = /data/logs/mysql0/mysql-bin
+log-bin-index                       = /data/logs/mysql0/mysql-bin.index
 binlog-format                       = MIXED
 max_binlog_size                     = 1GB
 sync_binlog                         = 0
 #binlog-do-db                        = <db_name>
 #binlog-ignore-db                    = <db_name>
-expire_logs_days                    = 7
+expire_logs_days                    = 10
 
 # replication:master
-server-id                           = 1
+server-id                           = 602
 #auto_increment_increment            = 10
 #auto_increment_offset               = 1
 #replicate-do-db                     = <db_name>
@@ -113,14 +113,14 @@ replicate-ignore-db                 = mysql.%
 #init_slave                          = ''
 log-slave-updates                   = FALSE
 replicate-same-server-id            = FALSE
-master-info-file                    = /logs/mysql0/master.info
-relay-log-info-file                 = /logs/mysql0/relay-log.info
-relay-log                           = /logs/mysql0/relay-bin
-relay-log-index                     = /logs/mysql0/relay-bin.index
+master-info-file                    = /data/logs/mysql0/master.info
+relay-log-info-file                 = /data/logs/mysql0/relay-log.info
+relay-log                           = /data/logs/mysql0/relay-bin
+relay-log-index                     = /data/logs/mysql0/relay-bin.index
 relay_log_recovery                  = FALSE
 slave-exec-mode                     = STRICT
 slave_compressed_protocol           = OFF
-slave-load-tmpdir                   = /logs/tmp/
+slave-load-tmpdir                   = /data/logs/tmp/
 slave-net-timeout                   = 3600
 skip-slave-start                    = FALSE
 slave-skip-errors                   = 
@@ -148,7 +148,7 @@ myisam-block-size                   = 4096
 myisam_sort_buffer_size             = 8MB
 
 # InnoDB
-innodb_buffer_pool_size             = 26GB
+innodb_buffer_pool_size             = 32GB
 innodb_additional_mem_pool_size     = 128MB
 innodb_data_file_path               = ibdata1:1G:autoextend
 innodb_file_format                  = Barracuda
